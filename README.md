@@ -6,4 +6,17 @@ git clone https://github.com/calcuis/gguf
 ```
 check the dropdown menu for `gguf`
 
-- cooking; please wait...
+### setup (in general)
+- drag gguf file(s) to diffusion_models folder (./ComfyUI/models/diffusion_models)
+- drag clip or encoder(s) to text_encoders folder (./ComfyUI/models/text_encoders)
+- drag controlnet adapter(s), if any, to controlnet folder (./ComfyUI/models/controlnet)
+- drag lora adapter(s), if any, to loras folder (./ComfyUI/models/loras)
+- drag vae decoder(s) to vae folder (./ComfyUI/models/vae)
+
+### workflow
+- drag workflow json to the activated browser; or
+- drag any generated output (i.e., picture, video, etc.; which contains the workflow metadata) to the activated browser
+
+### simulator
+- design your prompt; or
+- generate a random prompt/descriptor by the [simulator](https://prompt.calcuis.us)
