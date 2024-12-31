@@ -14,8 +14,8 @@ check the dropdown menu for `gguf`
 - drag vae decoder(s) to vae folder (./ComfyUI/models/vae)
 
 ### workflow
-- drag workflow json to the activated browser; or
-- drag any generated output (i.e., picture, video, etc.; which contains the workflow metadata) to the activated browser
+- drag the workflow json file to the activated browser; or
+- drag any generated output file (i.e., picture, video, etc.; which contains the workflow metadata) to the activated browser
 
 ### simulator
 - design your prompt; or
