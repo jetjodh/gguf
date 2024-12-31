@@ -19,4 +19,4 @@ check the dropdown menu for `gguf`
 
 ### simulator
 - design your prompt; or
-- generate a random prompt/descriptor by the [simulator](https://prompt.calcuis.us)
+- generate a random prompt/descriptor by the [simulator](https://prompt.calcuis.us) (though it might not be applicable for all)
