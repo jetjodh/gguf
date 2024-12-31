@@ -1,5 +1,7 @@
 ## gguf node for comfyui [![Static Badge](https://img.shields.io/badge/ver-0.0.3-black?logo=github)](https://github.com/calcuis/gguf/releases)
 
+![screenshot](https://raw.githubusercontent.com/calcuis/comfy/master/gguf-node.png)
+
 ### for all/general user(s)
 download the compressed comfy pack (7z), decompress it, and run the .bat file striaght
 ```
