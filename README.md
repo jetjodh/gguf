@@ -29,5 +29,5 @@ if you opt to clone the repo to custom_nodes (method 2); you need gguf-[connecto
 - drag any generated output file (i.e., picture, video, etc.; which contains the workflow metadata) to the activated browser
 
 ### simulator
-- design your prompt; or
+- design your own prompt; or
 - generate a random prompt/descriptor by the [simulator](https://prompt.calcuis.us) (though it might not be applicable for all)
