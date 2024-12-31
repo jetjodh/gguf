@@ -15,7 +15,7 @@ check the dropdown menu for `gguf`
 
 ![screenshot](https://raw.githubusercontent.com/calcuis/comfy/master/gguf-node.png)
 
-if you opt to clone the repo to custom_nodes (method 2); you need gguf-connector as well
+if you opt to clone the repo to custom_nodes (method 2); you need gguf-[connector](https://pypi.org/project/gguf-connector) as well
 
 ### setup (in general)
 - drag gguf file(s) to diffusion_models folder (./ComfyUI/models/diffusion_models)
