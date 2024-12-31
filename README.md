@@ -31,3 +31,8 @@ if you opt to clone the repo to custom_nodes (method 2); you need gguf-[connecto
 ### simulator
 - design your own prompt; or
 - generate a random prompt/descriptor by the [simulator](https://prompt.calcuis.us) (though it might not be applicable for all)
+
+#### reference
+[comfyui](https://github.com/comfyanonymous/ComfyUI)
+[comfyui-gguf](https://github.com/city96/ComfyUI-GGUF)
+[gguf-comfy](https://github.com/calcuis/gguf-comfy)
