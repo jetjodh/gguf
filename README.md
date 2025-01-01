@@ -10,18 +10,19 @@ pip install gguf-node
 ```
 py -m gguf_node
 ```
-#### for all/general user(s)
-opt `1` to download the compressed comfy pack (7z), decompress it, and run the .bat file striaght
-#### for technical user/developer(s)
-opt `2` to clone the gguf repo to the current directory (navigate to `./ComfyUI/custom_nodes` first)
 >Please select:
 >1. download the full pack
 >2. clone the node only
 >
 >Enter your choice (1 to 2): _
-alternatively, you could execute the git clone command to perform that task (see below):
+#### for all/general user(s)
+opt `1` to download the compressed comfy pack (7z), decompress it, and run the .bat file striaght
+#### for technical user/developer(s)
+opt `2` to clone the gguf repo to the current directory (navigate to `./ComfyUI/custom_nodes` first)
 
-navigate to `./ComfyUI/custom_nodes`, clone the gguf repo to that folder
+alternatively, you could execute the git clone command to perform that task (see below):
+- navigate to `./ComfyUI/custom_nodes`
+- clone the gguf repo to that folder by
 ```
 git clone https://github.com/calcuis/gguf
 ```
