@@ -1,15 +1,31 @@
-## gguf node for comfyui [![Static Badge](https://img.shields.io/badge/ver-0.0.3-black?logo=github)](https://github.com/calcuis/gguf/releases)
+## gguf node for comfyui [![Static Badge](https://img.shields.io/badge/ver-0.0.4-black?logo=github)](https://github.com/calcuis/gguf/releases)
 
 [<img src="https://raw.githubusercontent.com/calcuis/comfy/master/gguf.gif" width="128" height="128">](https://github.com/calcuis/gguf)
 
+#### install it via pip/pip3
+```
+pip install gguf-node
+```
+
 ### for all/general user(s)
-download the compressed comfy pack (7z), decompress it, and run the .bat file striaght
+enter the user menu by:
 ```
 py -m gguf_node
 ```
+opt `1` to download the compressed comfy pack (7z), decompress it, and run the .bat file striaght
 
 ### for technical user/developer(s)
-clone this repo to custom_nodes folder (./ComfyUI/custom_nodes)
+opt `2` to clone the gguf repo to the current directory (navigate to `./ComfyUI/custom_nodes` first)
+
+>Please select:
+>1. download the full pack
+>2. clone the node only
+>
+>Enter your choice (1 to 2): _
+
+alternatively, you could execute the git clone command to perform that task (see below):
+
+navigate to `./ComfyUI/custom_nodes`, clone the gguf repo to that folder
 ```
 git clone https://github.com/calcuis/gguf
 ```
