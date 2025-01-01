@@ -16,7 +16,7 @@ py -m gguf_node
 >
 >Enter your choice (1 to 2): _
 #### for all/general user(s)
-opt `1` to download the compressed comfy pack (7z), decompress it, and run the .bat file striaght
+opt `1` to download the compressed comfy pack (7z), decompress it (which includes everything you need to run a model; no installation needed), and run the .bat file striaght
 #### for technical user/developer(s)
 opt `2` to clone the gguf repo to the current directory (navigate to `./ComfyUI/custom_nodes` first)
 
