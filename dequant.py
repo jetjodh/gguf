@@ -26,9 +26,6 @@ def dequantize_tensor(tensor, dtype=None, dequant_dtype=None):
         return torch.from_numpy(new).to(tensor.device, dtype=dtype)
 
 def dequantize(data, qtype, oshape, dtype=None):
-    """
-    Dequantize tensor back to usable shape/dtype
-    """
     block_size, type_size = gr.GGML_QUANT_SIZES[qtype]
     dequantize_blocks = dequantize_functions[qtype]
 
