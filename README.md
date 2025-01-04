@@ -49,7 +49,7 @@ if you opt to clone the repo to custom_nodes (method 2); you need gguf-[connecto
 
 #### reference
 [comfyui](https://github.com/comfyanonymous/ComfyUI)
-[confyui-vlm](https://github.com/gokayfem/ComfyUI_VLM_nodes)
+[confyui_vlm_nodes](https://github.com/gokayfem/ComfyUI_VLM_nodes)
 [comfyui-gguf](https://github.com/city96/ComfyUI-GGUF)
 [gguf-comfy](https://github.com/calcuis/gguf-comfy)
 [testkit](https://huggingface.co/calcuis/gguf-node)
