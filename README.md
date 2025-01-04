@@ -15,7 +15,7 @@ py -m gguf_node
 >2. clone the node only
 >3. clone gguf-connector
 >
->Enter your choice (1 to 2): _
+>Enter your choice (1 to 3): _
 #### for all/general user(s)
 opt `1` to download the compressed comfy pack (7z), decompress it, and run the .bat file striaght (recommended)
 #### for technical user/developer(s)
