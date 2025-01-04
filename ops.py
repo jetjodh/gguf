@@ -5,9 +5,6 @@ from .dequant import dequantize_tensor, is_quantized
 from gguf_connector import reader as gr
 
 class GGMLTensor(torch.Tensor):
-    """
-    Main tensor-like class for storing quantized weights
-    """
     def __init__(self, *args, tensor_type, tensor_shape, patches=[], **kwargs):
         super().__init__()
         self.tensor_type = tensor_type
@@ -52,9 +49,6 @@ class GGMLTensor(torch.Tensor):
         return self.tensor_shape
 
 class GGMLLayer(torch.nn.Module):
-    """
-    This (should) be responsible for de-quantizing on the fly
-    """
     comfy_cast_weights = True
     dequant_dtype = None
     patch_dtype = None
@@ -114,12 +108,10 @@ class GGMLLayer(torch.nn.Module):
     def get_weight(self, tensor, dtype):
         if tensor is None:
             return
-
         patch_list = []
         device = tensor.device
         for function, patches, key in getattr(tensor, "patches", []):
             patch_list += move_patch_to_device(patches, device)
-
         weight = dequantize_tensor(tensor, dtype, self.dequant_dtype)
 
         if isinstance(weight, GGMLTensor):
@@ -141,13 +133,11 @@ class GGMLLayer(torch.nn.Module):
                 bias_dtype = dtype
             if device is None:
                 device = input.device
-
         bias = None
         non_blocking = comfy.model_management.device_supports_non_blocking(device)
         if s.bias is not None:
             bias = s.get_weight(s.bias.to(device), dtype)
             bias = comfy.ops.cast_to(bias, bias_dtype, device, non_blocking=non_blocking, copy=False)
-
         weight = s.get_weight(s.weight.to(device), dtype)
         weight = comfy.ops.cast_to(weight, dtype, device, non_blocking=non_blocking, copy=False)
         return weight, bias
@@ -166,9 +156,6 @@ class GGMLLayer(torch.nn.Module):
         raise NotImplementedError
 
 class GGMLOps(comfy.ops.manual_cast):
-    """
-    Dequantize weights on the fly before doing the compute
-    """
     class Linear(GGMLLayer, comfy.ops.manual_cast.Linear):
         def __init__(self, in_features, out_features, bias=True, device=None, dtype=None):
             torch.nn.Module.__init__(self)
