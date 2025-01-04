@@ -1,4 +1,4 @@
-### gguf node for comfyui [![Static Badge](https://img.shields.io/badge/ver-0.0.5-black?logo=github)](https://github.com/calcuis/gguf/releases)
+### gguf node for comfyui [![Static Badge](https://img.shields.io/badge/ver-0.0.6-black?logo=github)](https://github.com/calcuis/gguf/releases)
 
 [<img src="https://raw.githubusercontent.com/calcuis/comfy/master/gguf.gif" width="128" height="128">](https://github.com/calcuis/gguf)
 
@@ -13,6 +13,7 @@ py -m gguf_node
 >Please select:
 >1. download the full pack
 >2. clone the node only
+>3. clone gguf-connector
 >
 >Enter your choice (1 to 2): _
 #### for all/general user(s)
@@ -31,6 +32,8 @@ check the dropdown menu for `gguf`
 ![screenshot](https://raw.githubusercontent.com/calcuis/comfy/master/gguf-node.png)
 
 if you opt to clone the repo to custom_nodes (method 2); you need gguf-[connector](https://pypi.org/project/gguf-connector) as well
+#### idiot option
+opt `3` to clone the gguf-connector deployment copy (if you encounter any problem for installing gguf-connector, probably you don't have c/c++ complier or comply it failure, etc. and don't want to troubleshoot it anymore; or just lazy, then put this copy to your working version python `../site-packages` directory or `./python_embeded/Lib/site-packages` if you are using the portable pack)
 
 #### setup (in general)
 - drag gguf file(s) to diffusion_models folder (./ComfyUI/models/diffusion_models)
