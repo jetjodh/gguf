@@ -56,8 +56,6 @@ def gguf_sd_loader(path, handle_prefix="model.diffusion_model.", return_arch=Fal
         if arch_str not in IMG_ARCH_LIST and arch_str not in TXT_ARCH_LIST:
             raise ValueError(f"Unexpected architecture type in GGUF file, expected one of flux, sd1, sdxl, t5encoder but got {arch_str!r}")
     else:
-        # from .tools.convert import detect_arch
-        # arch_str = detect_arch(set(val[0] for val in tensors)).arch
         compat = "sd.cpp"
 
     state_dict = {}
@@ -249,7 +247,6 @@ class UnetLoaderGGUF:
                 "unet_name": (unet_names,),
             }
         }
-
     RETURN_TYPES = ("MODEL",)
     FUNCTION = "load_unet"
     CATEGORY = "gguf"
@@ -327,7 +324,6 @@ class CLIPLoaderGGUF:
                 "type": (["stable_diffusion", "stable_cascade", "sd3", "stable_audio", "mochi", "ltxv"],),
             }
         }
-
     RETURN_TYPES = ("CLIP",)
     FUNCTION = "load_clip"
     CATEGORY = "gguf"
