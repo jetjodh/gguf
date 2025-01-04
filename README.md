@@ -33,7 +33,7 @@ check the dropdown menu for `gguf`
 
 if you opt to clone the repo to custom_nodes (method 2); you need gguf-[connector](https://pypi.org/project/gguf-connector) as well (either install it via pip or just clone the deployment copy, see opt `3` below)
 #### idiot option (opt 1 not necessary to go through this since everything inside the pack)
-opt `3` to clone the gguf-connector deployment copy (in case you encounter any problem for installing gguf-connector, probably you don't have c/c++ complier or comply it failed, etc. and don't wanna troubleshoot it anymore; or just lazy, then put this copy to your working version python `../site-packages` directory or `./python_embeded/Lib/site-packages` if you are using the portable pack from comfyui)
+opt `3` to clone the gguf-connector deployment copy (in case you encounter any problem while installing gguf-connector, probably you don't have c/c++ complier or comply it failed, etc. and don't wanna troubleshoot it anymore; or just lazy, then put this copy to your working version python `../site-packages` directory or `./python_embeded/Lib/site-packages` if you are using the portable pack from comfyui)
 
 #### setup (in general)
 - drag gguf file(s) to diffusion_models folder (./ComfyUI/models/diffusion_models)
