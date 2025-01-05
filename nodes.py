@@ -1,5 +1,5 @@
 import torch
-import copy, logging, folder_paths
+import logging, folder_paths
 import comfy.sd
 import comfy.utils
 import comfy.model_management
@@ -8,13 +8,17 @@ from .ops import GGMLTensor, GGMLOps, move_patch_to_device
 from .dequant import is_quantized, is_torch_compatible
 from gguf_connector import reader as gr
 
-if "unet_gguf" not in folder_paths.folder_names_and_paths:
-    orig = folder_paths.folder_names_and_paths.get("diffusion_models", folder_paths.folder_names_and_paths.get("unet", [[], set()]))
-    folder_paths.folder_names_and_paths["unet_gguf"] = (orig[0], {".gguf"})
+def update_folder_names_and_paths(key, targets=[]):
+    base = folder_paths.folder_names_and_paths.get(key, ([], {}))
+    base = base[0] if isinstance(base[0], (list, set, tuple)) else []
+    target = next((x for x in targets if x in folder_paths.folder_names_and_paths), targets[0])
+    orig, _ = folder_paths.folder_names_and_paths.get(target, ([], {}))
+    folder_paths.folder_names_and_paths[key] = (orig or base, {".gguf"})
+    if base and base != orig:
+        logging.warning(f"Unknown file list already present on key {key}: {base}")
 
-if "clip_gguf" not in folder_paths.folder_names_and_paths:
-    orig = folder_paths.folder_names_and_paths.get("text_encoders", folder_paths.folder_names_and_paths.get("clip", [[], set()]))
-    folder_paths.folder_names_and_paths["clip_gguf"] = (orig[0], {".gguf"})
+update_folder_names_and_paths("model_gguf", ["diffusion_models", "unet"])
+update_folder_names_and_paths("clip_gguf", ["text_encoders", "clip"])
 
 IMG_ARCH_LIST = {"flux", "sd1", "sdxl", "sd3", "aura", "ltxv", "hyvid"}
 TXT_ARCH_LIST = {"t5", "t5encoder", "llama"}
@@ -241,18 +245,18 @@ class GGUFModelPatcher(comfy.model_patcher.ModelPatcher):
 class UnetLoaderGGUF:
     @classmethod
     def INPUT_TYPES(s):
-        unet_names = [x for x in folder_paths.get_filename_list("unet_gguf")]
+        gguf_names = [x for x in folder_paths.get_filename_list("model_gguf")]
         return {
             "required": {
-                "unet_name": (unet_names,),
+                "gguf_name": (gguf_names,),
             }
         }
     RETURN_TYPES = ("MODEL",)
-    FUNCTION = "load_unet"
+    FUNCTION = "load_model"
     CATEGORY = "gguf"
     TITLE = "GGUF Loader"
 
-    def load_unet(self, unet_name, dequant_dtype=None, patch_dtype=None, patch_on_device=None):
+    def load_model(self, gguf_name, dequant_dtype=None, patch_dtype=None, patch_on_device=None):
         ops = GGMLOps()
 
         if dequant_dtype in ("default", None):
@@ -269,14 +273,14 @@ class UnetLoaderGGUF:
         else:
             ops.Linear.patch_dtype = getattr(torch, patch_dtype)
 
-        unet_path = folder_paths.get_full_path("unet", unet_name)
-        sd = gguf_sd_loader(unet_path)
+        model_path = folder_paths.get_full_path("unet", gguf_name)
+        sd = gguf_sd_loader(model_path)
         model = comfy.sd.load_diffusion_model_state_dict(
             sd, model_options={"custom_operations": ops}
         )
         if model is None:
-            logging.error("ERROR UNSUPPORTED UNET {}".format(unet_path))
-            raise RuntimeError("ERROR: Could not detect model type of: {}".format(unet_path))
+            logging.error("ERROR UNSUPPORTED MODEL {}".format(model_path))
+            raise RuntimeError("ERROR: Could not detect model type of: {}".format(model_path))
         model = GGUFModelPatcher.clone(model)
         model.patch_on_device = patch_on_device
         return (model,)
@@ -284,10 +288,10 @@ class UnetLoaderGGUF:
 class UnetLoaderGGUFAdvanced(UnetLoaderGGUF):
     @classmethod
     def INPUT_TYPES(s):
-        unet_names = [x for x in folder_paths.get_filename_list("unet_gguf")]
+        model_names = [x for x in folder_paths.get_filename_list("model_gguf")]
         return {
             "required": {
-                "unet_name": (unet_names,),
+                "gguf_name": (model_names,),
                 "dequant_dtype": (["default", "target", "float32", "float16", "bfloat16"], {"default": "default"}),
                 "patch_dtype": (["default", "target", "float32", "float16", "bfloat16"], {"default": "default"}),
                 "patch_on_device": ("BOOLEAN", {"default": False}),
@@ -295,24 +299,26 @@ class UnetLoaderGGUFAdvanced(UnetLoaderGGUF):
         }
     TITLE = "GGUF Loader (Advanced)"
 
-CLIP_TYPE_MAP = {
-    "stable_diffusion": comfy.sd.CLIPType.STABLE_DIFFUSION,
-    "stable_cascade": comfy.sd.CLIPType.STABLE_CASCADE,
-    "stable_audio": comfy.sd.CLIPType.STABLE_AUDIO,
-    "sdxl": comfy.sd.CLIPType.STABLE_DIFFUSION,
-    "sd3": comfy.sd.CLIPType.SD3,
-    "flux": comfy.sd.CLIPType.FLUX,
-    "mochi": getattr(comfy.sd.CLIPType, "MOCHI", None),
-    "ltxv": getattr(comfy.sd.CLIPType, "LTXV", None),
-    "hunyuan_video": getattr(comfy.sd.CLIPType, "HUNYUAN_VIDEO", None),
+CLIP_ENUM_MAP = {
+    "stable_diffusion": "STABLE_DIFFUSION",
+    "stable_cascade":   "STABLE_CASCADE",
+    "stable_audio":     "STABLE_AUDIO",
+    "sdxl":             "STABLE_DIFFUSION",
+    "sd3":              "SD3",
+    "flux":             "FLUX",
+    "mochi":            "MOCHI",
+    "ltxv":             "LTXV",
+    "hunyuan_video":    "HUNYUAN_VIDEO",
+    "pixart":           "PIXART",
 }
 
-def get_clip_type(type):
-    if type not in CLIP_TYPE_MAP:
-        raise ValueError(f"Unknown CLIP model type {type}") 
-    clip_type = CLIP_TYPE_MAP[type]
+def get_clip_type(name):
+    enum_name = CLIP_ENUM_MAP.get(name, None)
+    if enum_name is None:
+        raise ValueError(f"Unknown CLIP model type {name}") 
+    clip_type = getattr(comfy.sd.CLIPType, CLIP_ENUM_MAP[name], None)
     if clip_type is None:
-        raise ValueError(f"Unsupported CLIP model type {type} (Update ComfyUI)")
+        raise ValueError(f"Unsupported CLIP model type {name} (Update ComfyUI)")
     return clip_type
 
 class CLIPLoaderGGUF:
@@ -321,7 +327,7 @@ class CLIPLoaderGGUF:
         return {
             "required": {
                 "clip_name": (s.get_filename_list(),),
-                "type": (["stable_diffusion", "stable_cascade", "sd3", "stable_audio", "mochi", "ltxv"],),
+                "type": (["stable_diffusion", "stable_cascade", "sd3", "stable_audio", "mochi", "ltxv", "pixart"],),
             }
         }
     RETURN_TYPES = ("CLIP",)
