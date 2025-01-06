@@ -6,7 +6,7 @@
 ```
 pip install gguf-node
 ```
-#### enter the user menu by
+#### enter the user menu by (if no py command; use python/python3 instead)
 ```
 py -m gguf_node
 ```
