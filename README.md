@@ -16,8 +16,12 @@ py -m gguf_node
 >3. clone gguf-connector
 >
 >Enter your choice (1 to 3): _
-#### for all/general user(s)
+#### for all/general user(s) [this is an idiot option; no installation needed; everything inside the pack]
 opt `1` to download the compressed comfy pack (7z), decompress it, and run the .bat file striaght (recommended)
+
+![screenshot](https://raw.githubusercontent.com/calcuis/comfy/master/gguf-node.png)
+check the dropdown menu for `gguf`
+
 #### for technical user/developer(s)
 opt `2` to clone the gguf repo to the current directory (navigate to `./ComfyUI/custom_nodes` first)
 
@@ -27,12 +31,8 @@ alternatively, you could execute the git clone command to perform that task (see
 ```
 git clone https://github.com/calcuis/gguf
 ```
-check the dropdown menu for `gguf`
-
-![screenshot](https://raw.githubusercontent.com/calcuis/comfy/master/gguf-node.png)
-
 if you opt to clone the repo to custom_nodes (method 2); you need gguf-[connector](https://pypi.org/project/gguf-connector) as well (either install it via pip or just clone the deployment copy, see opt `3` below)
-#### idiot option (opt 1 not necessary to go through this since everything inside the pack)
+#### optional [if you have gguf-connector installed, you don't need to go through this; deployment copy no command prompt feature]
 opt `3` to clone the gguf-connector deployment copy (in case you encounter any problem while installing gguf-connector, probably you don't have c/c++ complier or comply it failed, etc. and don't wanna troubleshoot it anymore; or just lazy, then put this copy to your working version python `../site-packages` directory or `./python_embeded/Lib/site-packages` if you are using the portable pack from comfyui)
 
 #### setup (in general)
@@ -49,6 +49,13 @@ opt `3` to clone the gguf-connector deployment copy (in case you encounter any p
 #### simulator
 - design your own prompt; or
 - generate a random prompt/descriptor by the [simulator](https://prompt.calcuis.us) (though it might not be applicable for all)
+
+#### convertor (new feature)
+- drag safetensors file(s) to diffusion_models folder (./ComfyUI/models/diffusion_models)
+- choose the last option from the gguf menu: `GGUF Convertor (Alpha)`
+- select your saftensors model inside the box; don't need to connect anything; simple
+- click `Queue` (run); then you can check the processing progress from console
+- when it was done; the converted gguf file will be saved in the output folder (./ComfyUI/output)
 
 #### reference
 [comfyui](https://github.com/comfyanonymous/ComfyUI)
