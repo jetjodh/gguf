@@ -53,8 +53,8 @@ opt `3` to clone the `gguf-connector` deployment copy (in case you encounter any
 #### convertor (new feature: convert safetensors to gguf)
 - drag safetensors file(s) to diffusion_models folder (./ComfyUI/models/diffusion_models)
 - choose the last option from the gguf menu: `GGUF Convertor (Alpha)`
-- select your saftensors model inside the box; don't need to connect anything; simple
-- click `Queue` (run); then you can check the processing progress from console
+- select your saftensors model inside the box; don't need to connect anything; it works independently
+- click `Queue` (run); then you can simply check the processing progress from console
 - when it was done; the converted gguf file will be saved in the output folder (./ComfyUI/output)
 
 #### reference
