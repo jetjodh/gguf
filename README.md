@@ -50,7 +50,7 @@ opt `3` to clone the `gguf-connector` deployment copy (in case you encounter any
 - design your own prompt; or
 - generate a random prompt/descriptor by the [simulator](https://prompt.calcuis.us) (though it might not be applicable for all)
 
-#### convertor (new feature)
+#### convertor (new feature: convert safetensors to gguf)
 - drag safetensors file(s) to diffusion_models folder (./ComfyUI/models/diffusion_models)
 - choose the last option from the gguf menu: `GGUF Convertor (Alpha)`
 - select your saftensors model inside the box; don't need to connect anything; simple
