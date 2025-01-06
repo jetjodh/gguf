@@ -32,7 +32,7 @@ alternatively, you could execute the git clone command to perform that task (see
 git clone https://github.com/calcuis/gguf
 ```
 if you opt to clone the repo to custom_nodes (method 2); you need gguf-[connector](https://pypi.org/project/gguf-connector) as well (either install it via pip or just clone the deployment copy, see opt `3` below)
-#### optional [if you have gguf-connector installed, you don't need to go through this; deployment copy no command prompt feature]
+#### optional [if you have gguf-connector installed, you don't need to go through this; btw, deployment copy no command prompt feature]
 opt `3` to clone the gguf-connector deployment copy (in case you encounter any problem while installing gguf-connector, probably you don't have c/c++ complier or comply it failed, etc. and don't wanna troubleshoot it anymore; or just lazy, then put this copy to your working version python `../site-packages` directory or `./python_embeded/Lib/site-packages` if you are using the portable pack from comfyui)
 
 #### setup (in general)
