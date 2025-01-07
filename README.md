@@ -57,6 +57,8 @@ opt `3` to clone the `gguf-connector` deployment copy (in case you encounter any
 - click `Queue` (run); then you can simply check the processing progress from console
 - when it was done; the converted gguf file will be saved in the output folder (./ComfyUI/output)
 
+![screenshot](https://raw.githubusercontent.com/calcuis/comfy/master/convertor.png)
+
 #### reference
 [comfyui](https://github.com/comfyanonymous/ComfyUI)
 [confyui_vlm_nodes](https://github.com/gokayfem/ComfyUI_VLM_nodes)
