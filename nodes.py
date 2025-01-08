@@ -1,12 +1,17 @@
 import torch
-import logging, folder_paths
+import logging, folder_paths, collections, os
 import comfy.sd
 import comfy.utils
 import comfy.model_management
 import comfy.model_patcher
+from tqdm import tqdm
+from safetensors.torch import load_file
 from .ops import GGMLTensor, GGMLOps, move_patch_to_device
 from .dequant import is_quantized, is_torch_compatible
-from gguf_connector import reader as gr
+from .gguf_connector import reader as gr
+from .gguf_connector.writer import GGUFWriter, GGMLQuantizationType
+from .gguf_connector.quant import quantize, QuantError
+from .gguf_connector.const import GGML_QUANT_VERSION, LlamaFileType
 
 def update_folder_names_and_paths(key, targets=[]):
     base = folder_paths.folder_names_and_paths.get(key, ([], {}))
@@ -160,7 +165,6 @@ def gguf_clip_loader(path):
         pass
     return sd
 
-import collections
 class GGUFModelPatcher(comfy.model_patcher.ModelPatcher):
     patch_on_device = False
 
@@ -242,7 +246,7 @@ class GGUFModelPatcher(comfy.model_patcher.ModelPatcher):
         n.patch_on_device = getattr(self, "patch_on_device", False)
         return n
 
-class UnetLoaderGGUF:
+class LoaderGGUF:
     @classmethod
     def INPUT_TYPES(s):
         gguf_names = [x for x in folder_paths.get_filename_list("model_gguf")]
@@ -285,7 +289,7 @@ class UnetLoaderGGUF:
         model.patch_on_device = patch_on_device
         return (model,)
 
-class UnetLoaderGGUFAdvanced(UnetLoaderGGUF):
+class LoaderGGUFAdvanced(LoaderGGUF):
     @classmethod
     def INPUT_TYPES(s):
         model_names = [x for x in folder_paths.get_filename_list("model_gguf")]
@@ -321,7 +325,7 @@ def get_clip_type(name):
         raise ValueError(f"Unsupported CLIP model type {name} (Update ComfyUI)")
     return clip_type
 
-class CLIPLoaderGGUF:
+class ClipLoaderGGUF:
     @classmethod
     def INPUT_TYPES(s):
         return {
@@ -369,7 +373,7 @@ class CLIPLoaderGGUF:
         clip_path = folder_paths.get_full_path("clip", clip_name)
         return (self.load_patcher([clip_path], get_clip_type(type), self.load_data([clip_path])),)
 
-class DualCLIPLoaderGGUF(CLIPLoaderGGUF):
+class DualClipLoaderGGUF(ClipLoaderGGUF):
     @classmethod
     def INPUT_TYPES(s):
         file_options = (s.get_filename_list(), )
@@ -388,7 +392,7 @@ class DualCLIPLoaderGGUF(CLIPLoaderGGUF):
         clip_paths = (clip_path1, clip_path2)
         return (self.load_patcher(clip_paths, get_clip_type(type), self.load_data(clip_paths)),)
 
-class TripleCLIPLoaderGGUF(CLIPLoaderGGUF):
+class TripleClipLoaderGGUF(ClipLoaderGGUF):
     @classmethod
     def INPUT_TYPES(s):
         file_options = (s.get_filename_list(), )
@@ -595,13 +599,6 @@ def handle_tensors(args, writer, state_dict, model_arch):
 
         writer.add_tensor(new_name, data, raw_dtype=data_qtype)
 
-import os
-from tqdm import tqdm
-from safetensors.torch import load_file
-from gguf_connector.writer import GGUFWriter, GGMLQuantizationType
-from gguf_connector.quant import quantize, QuantError
-from gguf_connector.const import GGML_QUANT_VERSION, LlamaFileType
-
 if "select_safetensors" not in folder_paths.folder_names_and_paths:
     orig = folder_paths.folder_names_and_paths.get("diffusion_models", folder_paths.folder_names_and_paths.get("checkpoints", [[], set()]))
     folder_paths.folder_names_and_paths["select_safetensors"] = (orig[0], {".safetensors"})
@@ -649,10 +646,10 @@ class GGUFSave:
         return{}
 
 NODE_CLASS_MAPPINGS = {
-    "UnetLoaderGGUF": UnetLoaderGGUF,
-    "CLIPLoaderGGUF": CLIPLoaderGGUF,
-    "DualCLIPLoaderGGUF": DualCLIPLoaderGGUF,
-    "TripleCLIPLoaderGGUF": TripleCLIPLoaderGGUF,
-    "UnetLoaderGGUFAdvanced": UnetLoaderGGUFAdvanced,
+    "LoaderGGUF": LoaderGGUF,
+    "ClipLoaderGGUF": ClipLoaderGGUF,
+    "DualClipLoaderGGUF": DualClipLoaderGGUF,
+    "TripleClipLoaderGGUF": TripleClipLoaderGGUF,
+    "LoaderGGUFAdvanced": LoaderGGUFAdvanced,
     "GGUFSave": GGUFSave,
 }
