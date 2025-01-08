@@ -13,9 +13,8 @@ py -m gguf_node
 >Please select:
 >1. download the full pack
 >2. clone the node only
->3. clone gguf-connector
 >
->Enter your choice (1 to 3): _
+>Enter your choice (1 to 2): _
 #### for all/general user(s)
 opt `1` to download the compressed comfy pack (7z), decompress it, and run the .bat file striaght (recommended)
 
@@ -38,7 +37,7 @@ if you opt to clone the repo to custom_nodes (method 2); you need [gguf-connecto
 opt `3` to clone the `gguf-connector` deployment copy (in case you encounter any problem while installing, probably you don't have c/c++ complier or comply it failed, etc. and don't wanna troubleshoot it anymore; or just lazy, then put this copy to your working version python `../site-packages` directory or `./python_embeded/Lib/site-packages` if you are using the portable pack from comfyui)
 </strike>
 
-**for the latest update, gguf-connector deployment copy is now attached to the node itself; don't need to clone it to site-packages; no dependencies needed right away; no extra step anymore**
+**🐷🐷📄 for the latest update, gguf-connector deployment copy is now attached to the node itself; don't need to clone it to site-packages; no dependencies needed right away; no extra step anymore**
 
 #### setup (in general)
 - drag gguf file(s) to diffusion_models folder (./ComfyUI/models/diffusion_models)
