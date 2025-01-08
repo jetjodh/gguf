@@ -1,7 +1,7 @@
 import torch
 from tqdm import tqdm
-import gguf_connector as ggc
-from gguf_connector import reader as gr
+from .gguf_connector import quant as gq
+from .gguf_connector import reader as gr
 
 TORCH_COMPATIBLE_QTYPES = {None, gr.GGMLQuantizationType.F32, gr.GGMLQuantizationType.F16}
 
@@ -22,7 +22,7 @@ def dequantize_tensor(tensor, dtype=None, dequant_dtype=None):
         return dequantize(tensor.data, qtype, oshape, dtype=dequant_dtype).to(dtype)
     else:
         tqdm.write(f"Falling back to numpy dequant for qtype: {qtype}")
-        new = ggc.quant.dequantize(tensor.cpu().numpy(), qtype)
+        new = gq.dequantize(tensor.cpu().numpy(), qtype)
         return torch.from_numpy(new).to(tensor.device, dtype=dtype)
 
 def dequantize(data, qtype, oshape, dtype=None):
