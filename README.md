@@ -16,11 +16,8 @@ py -m gguf_node
 >3. clone gguf-connector
 >
 >Enter your choice (1 to 3): _
-#### for all/general user(s) [this is an idiot option; no installation needed; everything inside the pack]
+#### for all/general user(s)
 opt `1` to download the compressed comfy pack (7z), decompress it, and run the .bat file striaght (recommended)
-
-![screenshot](https://raw.githubusercontent.com/calcuis/comfy/master/gguf-node.png)
-check the dropdown menu for `gguf`
 
 #### for technical user/developer(s)
 opt `2` to clone the gguf repo to the current directory (navigate to `./ComfyUI/custom_nodes` first)
@@ -31,6 +28,9 @@ alternatively, you could execute the git clone command to perform that task (see
 ```
 git clone https://github.com/calcuis/gguf
 ```
+
+![screenshot](https://raw.githubusercontent.com/calcuis/comfy/master/gguf-node.png)
+check the dropdown menu for `gguf`
 
 <strike>
 if you opt to clone the repo to custom_nodes (method 2); you need gguf-[connector](https://pypi.org/project/gguf-connector) as well (either install it via pip or just clone the deployment copy, see opt `3` below)
