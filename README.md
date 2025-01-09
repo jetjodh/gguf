@@ -38,7 +38,7 @@ opt `3` to clone the `gguf-connector` deployment copy (in case you encounter any
 </strike>
 <br/><br/>
 
-**🐷🐷📄 for the latest update, gguf-connector deployment copy is now attached to the node itself; don't need to clone it to site-packages; and as the default setting in comfyui is sufficient; no dependencies needed right away; no extra step anymore**
+**🐷🐷📄 for the latest update, gguf-connector deployment copy is now attached to the node itself; don't need to clone it to site-packages; and, as the default setting in comfyui is sufficient; no dependencies needed right away; no extra step anymore**
 
 #### setup (in general)
 - drag gguf file(s) to diffusion_models folder (./ComfyUI/models/diffusion_models)
