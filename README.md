@@ -1,4 +1,4 @@
-### gguf node for comfyui [![Static Badge](https://img.shields.io/badge/ver-0.1.0-black?logo=github)](https://github.com/calcuis/gguf/releases)
+### gguf node for comfyui [![Static Badge](https://img.shields.io/badge/ver-0.1.1-black?logo=github)](https://github.com/calcuis/gguf/releases)
 
 [<img src="https://raw.githubusercontent.com/calcuis/comfy/master/gguf.gif" width="128" height="128">](https://github.com/calcuis/gguf)
 
@@ -27,7 +27,7 @@ alternatively, you could execute the git clone command to perform that task (see
 ```
 git clone https://github.com/calcuis/gguf
 ```
-*same operation for the standalone pack;  then you should be able to see it under `Add Node >`*
+*same operation for the standalone pack; then you should be able to see it under `Add Node >`*
 ![screenshot](https://raw.githubusercontent.com/calcuis/comfy/master/gguf-node.png)
 check the dropdown menu for `gguf`
 
