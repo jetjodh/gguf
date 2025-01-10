@@ -69,4 +69,5 @@ opt `3` to clone the `gguf-connector` deployment copy (in case you encounter any
 [confyui_vlm_nodes](https://github.com/gokayfem/ComfyUI_VLM_nodes)
 [comfyui-gguf](https://github.com/city96/ComfyUI-GGUF)
 [gguf-comfy](https://github.com/calcuis/gguf-comfy)
+[gguf-connector](https://github.com/calcuis/gguf-connector)
 [testkit](https://huggingface.co/calcuis/gguf-node)
