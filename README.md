@@ -15,8 +15,8 @@ py -m gguf_node
 >2. clone the node only
 >
 >Enter your choice (1 to 2): _
-#### for all/general user(s)
-opt `1` to download the compressed comfy pack (7z), decompress it, and run the .bat file striaght (recommended)
+#### for new/all user(s)
+opt `1` to download the compressed comfy pack (7z), decompress it, and run the .bat file striaght (idiot option)
 
 #### for existing user/developer(s)
 opt `2` to clone the gguf repo to the current directory (navigate to `./ComfyUI/custom_nodes` first)
@@ -31,14 +31,11 @@ git clone https://github.com/calcuis/gguf
 ![screenshot](https://raw.githubusercontent.com/calcuis/comfy/master/gguf-node.png)
 check the dropdown menu for `gguf`
 
-<strike>
-if you opt to clone the repo to custom_nodes (method 2); you need [gguf-connector](https://pypi.org/project/gguf-connector) as well (either install it via pip or just clone the deployment copy, see opt `3` below)
-#### optional [if you have gguf-connector installed, you don't need to go through this; btw, deployment copy no command prompt feature]
-opt `3` to clone the `gguf-connector` deployment copy (in case you encounter any problem while installing, probably you don't have c/c++ complier or comply it failed, etc. and don't wanna troubleshoot it anymore; or just lazy, then put this copy to your working version python `../site-packages` directory or `./python_embeded/Lib/site-packages` if you are using the portable pack from comfyui)
-</strike>
-<br/><br/>
+🐷📄 for the latest update, gguf-connector deployment copy is now attached to the node itself; don't need to clone it to site-packages; and, as the default setting in comfyui is sufficient; no dependencies needed right away; no extra step anymore
 
-**🐷🐷📄 for the latest update, gguf-connector deployment copy is now attached to the node itself; don't need to clone it to site-packages; and, as the default setting in comfyui is sufficient; no dependencies needed right away; no extra step anymore**
+#### other(s)
+you could get the node through other channels, i.e., comfy-cli, comfyui-manager (available now; search `gguf` from the bar; see picture below)
+![screenshot](https://raw.githubusercontent.com/calcuis/comfy/master/comfyui-manager.png)
 
 #### setup (in general)
 - drag gguf file(s) to diffusion_models folder (./ComfyUI/models/diffusion_models)
