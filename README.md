@@ -31,7 +31,7 @@ git clone https://github.com/calcuis/gguf
 ![screenshot](https://raw.githubusercontent.com/calcuis/comfy/master/gguf-node.png)
 check the dropdown menu for `gguf`
 
-🐷📄 for the latest update, gguf-connector deployment copy is now attached to the node itself; don't need to clone it to site-packages; and, as the default setting in comfyui is sufficient; no dependencies needed right away; no extra step anymore
+🐷🐷📄 for the latest update, gguf-connector deployment copy is now attached to the node itself; don't need to clone it to site-packages; and, as the default setting in comfyui is sufficient; no dependencies needed right away; no extra step anymore
 
 #### other(s)
 you could get the node through other channels, i.e., comfy-cli, comfyui-manager (available now; search `gguf` from the bar; see picture below)
