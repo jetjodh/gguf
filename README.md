@@ -34,7 +34,7 @@ check the dropdown menu for `gguf`
 🐷🐷📄 for the latest update, gguf-connector deployment copy is now attached to the node itself; don't need to clone it to site-packages; and, as the default setting in comfyui is sufficient; no dependencies needed right away 🙌 no extra step anymore
 
 #### other(s)
-you are also welcome to get the node through other channels, i.e., comfy-cli, comfyui-manager (available now; search `gguf` from the bar; see picture below)
+you are also welcome to get the node through other channels, i.e., comfy-cli, comfyui-manager (available now; search `gguf` from the bar; and opt to install it there; see picture below)
 ![screenshot](https://raw.githubusercontent.com/calcuis/comfy/master/comfyui-manager.png)
 
 #### setup (in general)
