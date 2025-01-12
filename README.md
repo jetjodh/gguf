@@ -61,7 +61,7 @@ for the demo workflow (picture) above, you could get the test model gguf [here](
 - choose the last option from the gguf menu: `GGUF Convertor (Alpha)`
 - select your safetensors model inside the box; don't need to connect anything; it works independently
 - click `Queue` (run); then you can simply check the processing progress from console
-- when it was done; the converted gguf file will be saved in the output folder (./ComfyUI/output)
+- when it was done; the converted gguf file will be saved to the output folder (./ComfyUI/output)
 
 ![screenshot](https://raw.githubusercontent.com/calcuis/comfy/master/convertor.png)
 
