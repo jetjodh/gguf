@@ -36,7 +36,7 @@ check the dropdown menu for `gguf`
 #### other(s)
 you are also welcome to get the node through other available channels, i.e., comfy-cli, comfyui-manager (search `gguf` from the bar; and opt to install it there should be fine; see picture below)
 ![screenshot](https://raw.githubusercontent.com/calcuis/comfy/master/comfyui-manager.png)
-gguf node is no conflict with the popular comfyui-gguf node (can coexist; then you could test them both); and is more lightweight (no dependencies needed), compatible with the latest numpy and other updated libraries come with comfyui
+gguf node is no conflict with the popular comfyui-gguf node (can coexist; then you could test them both; or mixing up for your own purpose); and is more lightweight (no dependencies needed), compatible with the latest version numpy and other updated libraries come with comfyui
 
 ![screenshot](https://raw.githubusercontent.com/calcuis/comfy/master/demo1.png)
 
