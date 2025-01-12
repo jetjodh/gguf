@@ -72,3 +72,6 @@ for the demo workflow (picture) above, you could get the test model gguf [here](
 [gguf-comfy](https://github.com/calcuis/gguf-comfy)
 [gguf-connector](https://github.com/calcuis/gguf-connector)
 [testkit](https://huggingface.co/calcuis/gguf-node)
+
+#### parent
+node is a member of family [gguf](https://gguf.org)
