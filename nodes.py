@@ -5,7 +5,7 @@ import comfy.utils
 import comfy.model_management
 import comfy.model_patcher
 from tqdm import tqdm
-from safetensors.torch import load_file
+from safetensors.torch import load_file, save_file
 from .ops import GGMLTensor, GGMLOps, move_patch_to_device
 from .dequant import is_quantized, is_torch_compatible
 from .gguf_connector import reader as gr
@@ -16,36 +16,38 @@ from .gguf_connector.const import GGML_QUANT_VERSION, LlamaFileType
 def update_folder_names_and_paths(key, targets=[]):
     base = folder_paths.folder_names_and_paths.get(key, ([], {}))
     base = base[0] if isinstance(base[0], (list, set, tuple)) else []
-    target = next((x for x in targets if x in folder_paths.folder_names_and_paths), targets[0])
+    target = next((x for x in targets if x in folder_paths.
+        folder_names_and_paths), targets[0])
     orig, _ = folder_paths.folder_names_and_paths.get(target, ([], {}))
-    folder_paths.folder_names_and_paths[key] = (orig or base, {".gguf"})
+    folder_paths.folder_names_and_paths[key] = orig or base, {'.gguf'}
     if base and base != orig:
-        logging.warning(f"Unknown file list already present on key {key}: {base}")
-
-update_folder_names_and_paths("model_gguf", ["diffusion_models", "unet"])
-update_folder_names_and_paths("clip_gguf", ["text_encoders", "clip"])
-
-IMG_ARCH_LIST = {"flux", "sd1", "sdxl", "sd3", "aura", "ltxv", "hyvid"}
-TXT_ARCH_LIST = {"t5", "t5encoder", "llama"}
-
+        logging.warning(
+            f'Unknown file list already present on key {key}: {base}')
+update_folder_names_and_paths('model_gguf', ['diffusion_models', 'unet'])
+update_folder_names_and_paths('clip_gguf', ['text_encoders', 'clip'])
+IMG_ARCH_LIST = {'flux', 'sd1', 'sdxl', 'sd3', 'aura', 'ltxv', 'hyvid'}
+TXT_ARCH_LIST = {'t5', 't5encoder', 'llama'}
 def get_orig_shape(reader, tensor_name):
-    field_key = f"comfy.gguf.orig_shape.{tensor_name}"
+    field_key = f'comfy.gguf.orig_shape.{tensor_name}'
     field = reader.get_field(field_key)
     if field is None:
         return None
-    if len(field.types) != 2 or field.types[0] != gr.GGUFValueType.ARRAY or field.types[1] != gr.GGUFValueType.INT32:
-        raise TypeError(f"Bad original shape metadata for {field_key}: Expected ARRAY of INT32, got {field.types}")
-    return torch.Size(tuple(int(field.parts[part_idx][0]) for part_idx in field.data))
-
-def gguf_sd_loader(path, handle_prefix="model.diffusion_model.", return_arch=False):
+    if len(field.types) != 2 or field.types[0
+        ] != gr.GGUFValueType.ARRAY or field.types[1
+        ] != gr.GGUFValueType.INT32:
+        raise TypeError(
+            f'Bad original shape metadata for {field_key}: Expected ARRAY of INT32, got {field.types}'
+            )
+    return torch.Size(tuple(int(field.parts[part_idx][0]) for part_idx in
+        field.data))
+def gguf_sd_loader(path, handle_prefix='model.diffusion_model.',
+    return_arch=False):
     reader = gr.GGUFReader(path)
-
     has_prefix = False
     if handle_prefix is not None:
         prefix_len = len(handle_prefix)
         tensor_names = set(tensor.name for tensor in reader.tensors)
         has_prefix = any(s.startswith(handle_prefix) for s in tensor_names)
-
     tensors = []
     for tensor in reader.tensors:
         sd_key = tensor_name = tensor.name
@@ -54,19 +56,22 @@ def gguf_sd_loader(path, handle_prefix="model.diffusion_model.", return_arch=Fal
                 continue
             sd_key = tensor_name[prefix_len:]
         tensors.append((sd_key, tensor))
-
     compat = None
     arch_str = None
-    arch_field = reader.get_field("general.architecture")
+    arch_field = reader.get_field('general.architecture')
     if arch_field is not None:
-        if len(arch_field.types) != 1 or arch_field.types[0] != gr.GGUFValueType.STRING:
-            raise TypeError(f"Bad type for GGUF general.architecture key: expected string, got {arch_field.types!r}")
-        arch_str = str(arch_field.parts[arch_field.data[-1]], encoding="utf-8")
+        if len(arch_field.types) != 1 or arch_field.types[0
+            ] != gr.GGUFValueType.STRING:
+            raise TypeError(
+                f'Bad type for GGUF general.architecture key: expected string, got {arch_field.types!r}'
+                )
+        arch_str = str(arch_field.parts[arch_field.data[-1]], encoding='utf-8')
         if arch_str not in IMG_ARCH_LIST and arch_str not in TXT_ARCH_LIST:
-            raise ValueError(f"Unexpected architecture type in GGUF file, expected one of flux, sd1, sdxl, t5encoder but got {arch_str!r}")
+            raise ValueError(
+                f'Unexpected architecture type in GGUF file, expected one of flux, sd1, sdxl, t5encoder but got {arch_str!r}'
+                )
     else:
-        compat = "sd.cpp"
-
+        compat = 'sd.cpp'
     state_dict = {}
     qtype_dict = {}
     for sd_key, tensor in tensors:
@@ -76,411 +81,317 @@ def gguf_sd_loader(path, handle_prefix="model.diffusion_model.", return_arch=Fal
         shape = get_orig_shape(reader, tensor_name)
         if shape is None:
             shape = torch.Size(tuple(int(v) for v in reversed(tensor.shape)))
-            if compat == "sd.cpp" and arch_str == "sdxl":
-                if any([tensor_name.endswith(x) for x in (".proj_in.weight", ".proj_out.weight")]):
+            if compat == 'sd.cpp' and arch_str == 'sdxl':
+                if any([tensor_name.endswith(x) for x in ('.proj_in.weight',
+                    '.proj_out.weight')]):
                     while len(shape) > 2 and shape[-1] == 1:
                         shape = shape[:-1]
-
-        if tensor.tensor_type in {gr.GGMLQuantizationType.F32, gr.GGMLQuantizationType.F16}:
+        if tensor.tensor_type in {gr.GGMLQuantizationType.F32, gr.
+            GGMLQuantizationType.F16}:
             torch_tensor = torch_tensor.view(*shape)
-        state_dict[sd_key] = GGMLTensor(torch_tensor, tensor_type=tensor.tensor_type, tensor_shape=shape)
+        state_dict[sd_key] = GGMLTensor(torch_tensor, tensor_type=tensor.
+            tensor_type, tensor_shape=shape)
         qtype_dict[tensor_type_str] = qtype_dict.get(tensor_type_str, 0) + 1
-
-    qsd = {k:v for k,v in state_dict.items() if is_quantized(v)}
+    qsd = {k: v for k, v in state_dict.items() if is_quantized(v)}
     if len(qsd) > 0:
         max_key = max(qsd.keys(), key=lambda k: qsd[k].numel())
         state_dict[max_key].is_largest_weight = True
-
-    print("\nggml_sd_loader:")
-    for k,v in qtype_dict.items():
-        print(f" {k:30}{v:3}")
-
+    print('\nggml_sd_loader:')
+    for k, v in qtype_dict.items():
+        print(f' {k:30}{v:3}')
     if return_arch:
-        return (state_dict, arch_str)
+        return state_dict, arch_str
     return state_dict
-
-T5_SD_MAP = {
-    "enc.": "encoder.",
-    ".blk.": ".block.",
-    "token_embd": "shared",
-    "output_norm": "final_layer_norm",
-    "attn_q": "layer.0.SelfAttention.q",
-    "attn_k": "layer.0.SelfAttention.k",
-    "attn_v": "layer.0.SelfAttention.v",
-    "attn_o": "layer.0.SelfAttention.o",
-    "attn_norm": "layer.0.layer_norm",
-    "attn_rel_b": "layer.0.SelfAttention.relative_attention_bias",
-    "ffn_up": "layer.1.DenseReluDense.wi_1",
-    "ffn_down": "layer.1.DenseReluDense.wo",
-    "ffn_gate": "layer.1.DenseReluDense.wi_0",
-    "ffn_norm": "layer.1.layer_norm",
-}
-
-LLAMA_SD_MAP = {
-    "blk.": "model.layers.",
-    "attn_norm": "input_layernorm",
-    "attn_q": "self_attn.q_proj",
-    "attn_k": "self_attn.k_proj",
-    "attn_v": "self_attn.v_proj",
-    "attn_output": "self_attn.o_proj",
-    "ffn_up": "mlp.up_proj",
-    "ffn_down": "mlp.down_proj",
-    "ffn_gate": "mlp.gate_proj",
-    "ffn_norm": "post_attention_layernorm",
-    "token_embd": "model.embed_tokens",
-    "output_norm": "model.norm",
-    "output.weight": "lm_head.weight",
-}
-
+T5_SD_MAP = {'enc.': 'encoder.', '.blk.': '.block.', 'token_embd': 'shared',
+    'output_norm': 'final_layer_norm', 'attn_q': 'layer.0.SelfAttention.q',
+    'attn_k': 'layer.0.SelfAttention.k', 'attn_v':
+    'layer.0.SelfAttention.v', 'attn_o': 'layer.0.SelfAttention.o',
+    'attn_norm': 'layer.0.layer_norm', 'attn_rel_b':
+    'layer.0.SelfAttention.relative_attention_bias', 'ffn_up':
+    'layer.1.DenseReluDense.wi_1', 'ffn_down': 'layer.1.DenseReluDense.wo',
+    'ffn_gate': 'layer.1.DenseReluDense.wi_0', 'ffn_norm': 'layer.1.layer_norm'
+    }
+LLAMA_SD_MAP = {'blk.': 'model.layers.', 'attn_norm': 'input_layernorm',
+    'attn_q': 'self_attn.q_proj', 'attn_k': 'self_attn.k_proj', 'attn_v':
+    'self_attn.v_proj', 'attn_output': 'self_attn.o_proj', 'ffn_up':
+    'mlp.up_proj', 'ffn_down': 'mlp.down_proj', 'ffn_gate': 'mlp.gate_proj',
+    'ffn_norm': 'post_attention_layernorm', 'token_embd':
+    'model.embed_tokens', 'output_norm': 'model.norm', 'output.weight':
+    'lm_head.weight'}
 def sd_map_replace(raw_sd, key_map):
     sd = {}
-    for k,v in raw_sd.items():
-        for s,d in key_map.items():
-            k = k.replace(s,d)
+    for k, v in raw_sd.items():
+        for s, d in key_map.items():
+            k = k.replace(s, d)
         sd[k] = v
     return sd
-
 def llama_permute(raw_sd, n_head, n_head_kv):
     sd = {}
-    permute = lambda x,h: x.reshape(h, x.shape[0] // h // 2, 2, *x.shape[1:]).swapaxes(1, 2).reshape(x.shape)
-    for k,v in raw_sd.items():
-        if k.endswith(("q_proj.weight", "q_proj.bias")):
+    permute = lambda x, h: x.reshape(h, x.shape[0] // h // 2, 2, *x.shape[1:]
+        ).swapaxes(1, 2).reshape(x.shape)
+    for k, v in raw_sd.items():
+        if k.endswith(('q_proj.weight', 'q_proj.bias')):
             v.data = permute(v.data, n_head)
-        if k.endswith(("k_proj.weight", "k_proj.bias")):
+        if k.endswith(('k_proj.weight', 'k_proj.bias')):
             v.data = permute(v.data, n_head_kv)
         sd[k] = v
     return sd
-
 def gguf_clip_loader(path):
     sd, arch = gguf_sd_loader(path, return_arch=True)
-    if arch in {"t5", "t5encoder"}:
+    if arch in {'t5', 't5encoder'}:
         sd = sd_map_replace(sd, T5_SD_MAP)
-    elif arch in {"llama"}:
-        temb_key = "token_embd.weight"
+    elif arch in {'llama'}:
+        temb_key = 'token_embd.weight'
         if temb_key in sd and sd[temb_key].shape != (128320, 4096):
-            print("Warning! token_embd shape may be incorrect for llama 3 model!")
+            print(
+                'Warning! token_embd shape may be incorrect for llama 3 model!'
+                )
         sd = sd_map_replace(sd, LLAMA_SD_MAP)
         sd = llama_permute(sd, 32, 8)
     else:
         pass
     return sd
-
 class GGUFModelPatcher(comfy.model_patcher.ModelPatcher):
     patch_on_device = False
-
-    def patch_weight_to_device(self, key, device_to=None, inplace_update=False):
+    def patch_weight_to_device(self, key, device_to=None, inplace_update=False
+        ):
         if key not in self.patches:
             return
         weight = comfy.utils.get_attr(self.model, key)
-
         try:
             from comfy.lora import calculate_weight
         except Exception:
             calculate_weight = self.calculate_weight
-
         patches = self.patches[key]
         if is_quantized(weight):
             out_weight = weight.to(device_to)
-            patches = move_patch_to_device(patches, self.load_device if self.patch_on_device else self.offload_device)
+            patches = move_patch_to_device(patches, self.load_device if
+                self.patch_on_device else self.offload_device)
             out_weight.patches = [(calculate_weight, patches, key)]
         else:
             inplace_update = self.weight_inplace_update or inplace_update
             if key not in self.backup:
-                self.backup[key] = collections.namedtuple('Dimension', ['weight', 'inplace_update'])(
-                    weight.to(device=self.offload_device, copy=inplace_update), inplace_update
-                )
-
+                self.backup[key] = collections.namedtuple('Dimension', [
+                    'weight', 'inplace_update'])(weight.to(device=self.
+                    offload_device, copy=inplace_update), inplace_update)
             if device_to is not None:
-                temp_weight = comfy.model_management.cast_to_device(weight, device_to, torch.float32, copy=True)
+                temp_weight = comfy.model_management.cast_to_device(weight,
+                    device_to, torch.float32, copy=True)
             else:
                 temp_weight = weight.to(torch.float32, copy=True)
-
             out_weight = calculate_weight(patches, temp_weight, key)
-            out_weight = comfy.float.stochastic_rounding(out_weight, weight.dtype)
-
+            out_weight = comfy.float.stochastic_rounding(out_weight, weight
+                .dtype)
         if inplace_update:
             comfy.utils.copy_to_param(self.model, key, out_weight)
         else:
             comfy.utils.set_attr_param(self.model, key, out_weight)
-
     def unpatch_model(self, device_to=None, unpatch_weights=True):
         if unpatch_weights:
             for p in self.model.parameters():
                 if is_torch_compatible(p):
                     continue
-                patches = getattr(p, "patches", [])
+                patches = getattr(p, 'patches', [])
                 if len(patches) > 0:
                     p.patches = []
-        return super().unpatch_model(device_to=device_to, unpatch_weights=unpatch_weights)
-
+        return super().unpatch_model(device_to=device_to, unpatch_weights=
+            unpatch_weights)
     mmap_released = False
     def load(self, *args, force_patch_weights=False, **kwargs):
         super().load(*args, force_patch_weights=True, **kwargs)
-
         if not self.mmap_released:
             linked = []
-            if kwargs.get("lowvram_model_memory", 0) > 0:
+            if kwargs.get('lowvram_model_memory', 0) > 0:
                 for n, m in self.model.named_modules():
-                    if hasattr(m, "weight"):
-                        device = getattr(m.weight, "device", None)
+                    if hasattr(m, 'weight'):
+                        device = getattr(m.weight, 'device', None)
                         if device == self.offload_device:
                             linked.append((n, m))
                             continue
-                    if hasattr(m, "bias"):
-                        device = getattr(m.bias, "device", None)
+                    if hasattr(m, 'bias'):
+                        device = getattr(m.bias, 'device', None)
                         if device == self.offload_device:
                             linked.append((n, m))
                             continue
             if linked:
-                print(f"Attempting to release mmap ({len(linked)})")
+                print(f'Attempting to release mmap ({len(linked)})')
                 for n, m in linked:
                     m.to(self.load_device).to(self.offload_device)
             self.mmap_released = True
-
     def clone(self, *args, **kwargs):
         src_cls = self.__class__
         self.__class__ = GGUFModelPatcher
         n = super().clone(*args, **kwargs)
         n.__class__ = GGUFModelPatcher
         self.__class__ = src_cls
-        n.patch_on_device = getattr(self, "patch_on_device", False)
+        n.patch_on_device = getattr(self, 'patch_on_device', False)
         return n
-
 class LoaderGGUF:
     @classmethod
     def INPUT_TYPES(s):
-        gguf_names = [x for x in folder_paths.get_filename_list("model_gguf")]
-        return {
-            "required": {
-                "gguf_name": (gguf_names,),
-            }
-        }
-    RETURN_TYPES = ("MODEL",)
-    FUNCTION = "load_model"
-    CATEGORY = "gguf"
-    TITLE = "GGUF Loader"
-
-    def load_model(self, gguf_name, dequant_dtype=None, patch_dtype=None, patch_on_device=None):
+        gguf_names = [x for x in folder_paths.get_filename_list('model_gguf')]
+        return {'required': {'gguf_name': (gguf_names,)}}
+    RETURN_TYPES = 'MODEL',
+    FUNCTION = 'load_model'
+    CATEGORY = 'gguf'
+    TITLE = 'GGUF Loader'
+    def load_model(self, gguf_name, dequant_dtype=None, patch_dtype=None,
+        patch_on_device=None):
         ops = GGMLOps()
-
-        if dequant_dtype in ("default", None):
+        if dequant_dtype in ('default', None):
             ops.Linear.dequant_dtype = None
-        elif dequant_dtype in ["target"]:
+        elif dequant_dtype in ['target']:
             ops.Linear.dequant_dtype = dequant_dtype
         else:
             ops.Linear.dequant_dtype = getattr(torch, dequant_dtype)
-
-        if patch_dtype in ("default", None):
+        if patch_dtype in ('default', None):
             ops.Linear.patch_dtype = None
-        elif patch_dtype in ["target"]:
+        elif patch_dtype in ['target']:
             ops.Linear.patch_dtype = patch_dtype
         else:
             ops.Linear.patch_dtype = getattr(torch, patch_dtype)
-
-        model_path = folder_paths.get_full_path("unet", gguf_name)
+        model_path = folder_paths.get_full_path('unet', gguf_name)
         sd = gguf_sd_loader(model_path)
-        model = comfy.sd.load_diffusion_model_state_dict(
-            sd, model_options={"custom_operations": ops}
-        )
+        model = comfy.sd.load_diffusion_model_state_dict(sd, model_options=
+            {'custom_operations': ops})
         if model is None:
-            logging.error("ERROR UNSUPPORTED MODEL {}".format(model_path))
-            raise RuntimeError("ERROR: Could not detect model type of: {}".format(model_path))
+            logging.error('ERROR UNSUPPORTED MODEL {}'.format(model_path))
+            raise RuntimeError('ERROR: Could not detect model type of: {}'.
+                format(model_path))
         model = GGUFModelPatcher.clone(model)
         model.patch_on_device = patch_on_device
-        return (model,)
-
+        return model,
 class LoaderGGUFAdvanced(LoaderGGUF):
     @classmethod
     def INPUT_TYPES(s):
-        model_names = [x for x in folder_paths.get_filename_list("model_gguf")]
-        return {
-            "required": {
-                "gguf_name": (model_names,),
-                "dequant_dtype": (["default", "target", "float32", "float16", "bfloat16"], {"default": "default"}),
-                "patch_dtype": (["default", "target", "float32", "float16", "bfloat16"], {"default": "default"}),
-                "patch_on_device": ("BOOLEAN", {"default": False}),
-            }
-        }
-    TITLE = "GGUF Loader (Advanced)"
-
-CLIP_ENUM_MAP = {
-    "stable_diffusion": "STABLE_DIFFUSION",
-    "stable_cascade":   "STABLE_CASCADE",
-    "stable_audio":     "STABLE_AUDIO",
-    "sdxl":             "STABLE_DIFFUSION",
-    "sd3":              "SD3",
-    "flux":             "FLUX",
-    "mochi":            "MOCHI",
-    "ltxv":             "LTXV",
-    "hunyuan_video":    "HUNYUAN_VIDEO",
-    "pixart":           "PIXART",
-}
-
+        model_names = [x for x in folder_paths.get_filename_list('model_gguf')]
+        return {'required': {'gguf_name': (model_names,), 'dequant_dtype':
+            (['default', 'target', 'float32', 'float16', 'bfloat16'], {
+            'default': 'default'}), 'patch_dtype': (['default', 'target',
+            'float32', 'float16', 'bfloat16'], {'default': 'default'}),
+            'patch_on_device': ('BOOLEAN', {'default': False})}}
+    TITLE = 'GGUF Loader (Advanced)'
+CLIP_ENUM_MAP = {'stable_diffusion': 'STABLE_DIFFUSION', 'stable_cascade':
+    'STABLE_CASCADE', 'stable_audio': 'STABLE_AUDIO', 'sdxl':
+    'STABLE_DIFFUSION', 'sd3': 'SD3', 'flux': 'FLUX', 'mochi': 'MOCHI',
+    'ltxv': 'LTXV', 'hunyuan_video': 'HUNYUAN_VIDEO', 'pixart': 'PIXART'}
 def get_clip_type(name):
     enum_name = CLIP_ENUM_MAP.get(name, None)
     if enum_name is None:
-        raise ValueError(f"Unknown CLIP model type {name}") 
+        raise ValueError(f'Unknown CLIP model type {name}')
     clip_type = getattr(comfy.sd.CLIPType, CLIP_ENUM_MAP[name], None)
     if clip_type is None:
-        raise ValueError(f"Unsupported CLIP model type {name} (Update ComfyUI)")
+        raise ValueError(f'Unsupported CLIP model type {name} (Update ComfyUI)'
+            )
     return clip_type
-
 class ClipLoaderGGUF:
     @classmethod
     def INPUT_TYPES(s):
-        return {
-            "required": {
-                "clip_name": (s.get_filename_list(),),
-                "type": (["stable_diffusion", "stable_cascade", "sd3", "stable_audio", "mochi", "ltxv", "pixart"],),
-            }
-        }
-    RETURN_TYPES = ("CLIP",)
-    FUNCTION = "load_clip"
-    CATEGORY = "gguf"
-    TITLE = "GGUF CLIPLoader"
-
+        return {'required': {'clip_name': (s.get_filename_list(),), 'type':
+            (['stable_diffusion', 'stable_cascade', 'sd3', 'stable_audio',
+            'mochi', 'ltxv', 'pixart'],)}}
+    RETURN_TYPES = 'CLIP',
+    FUNCTION = 'load_clip'
+    CATEGORY = 'gguf'
+    TITLE = 'GGUF CLIPLoader'
     @classmethod
     def get_filename_list(s):
         files = []
-        files += folder_paths.get_filename_list("clip")
-        files += folder_paths.get_filename_list("clip_gguf")
+        files += folder_paths.get_filename_list('clip')
+        files += folder_paths.get_filename_list('clip_gguf')
         return sorted(files)
-
     def load_data(self, ckpt_paths):
         clip_data = []
         for p in ckpt_paths:
-            if p.endswith(".gguf"):
+            if p.endswith('.gguf'):
                 sd = gguf_clip_loader(p)
             else:
                 sd = comfy.utils.load_torch_file(p, safe_load=True)
             clip_data.append(sd)
         return clip_data
-
     def load_patcher(self, clip_paths, clip_type, clip_data):
-        clip = comfy.sd.load_text_encoder_state_dicts(
-            clip_type = clip_type,
-            state_dicts = clip_data,
-            model_options = {
-                "custom_operations": GGMLOps,
-                "initial_device": comfy.model_management.text_encoder_offload_device()
-            },
-            embedding_directory = folder_paths.get_folder_paths("embeddings"),
-        )
+        clip = comfy.sd.load_text_encoder_state_dicts(clip_type=clip_type,
+            state_dicts=clip_data, model_options={'custom_operations':
+            GGMLOps, 'initial_device': comfy.model_management.
+            text_encoder_offload_device()}, embedding_directory=
+            folder_paths.get_folder_paths('embeddings'))
         clip.patcher = GGUFModelPatcher.clone(clip.patcher)
         return clip
-
-    def load_clip(self, clip_name, type="stable_diffusion"):
-        clip_path = folder_paths.get_full_path("clip", clip_name)
-        return (self.load_patcher([clip_path], get_clip_type(type), self.load_data([clip_path])),)
-
+    def load_clip(self, clip_name, type='stable_diffusion'):
+        clip_path = folder_paths.get_full_path('clip', clip_name)
+        return self.load_patcher([clip_path], get_clip_type(type), self.
+            load_data([clip_path])),
 class DualClipLoaderGGUF(ClipLoaderGGUF):
     @classmethod
     def INPUT_TYPES(s):
-        file_options = (s.get_filename_list(), )
-        return {
-            "required": {
-                "clip_name1": file_options,
-                "clip_name2": file_options,
-                "type": (("sdxl", "sd3", "flux"), ),
-            }
-        }
-    TITLE = "GGUF DualCLIPLoader"
-
+        file_options = s.get_filename_list(),
+        return {'required': {'clip_name1': file_options, 'clip_name2':
+            file_options, 'type': (('sdxl', 'sd3', 'flux'),)}}
+    TITLE = 'GGUF DualCLIPLoader'
     def load_clip(self, clip_name1, clip_name2, type):
-        clip_path1 = folder_paths.get_full_path("clip", clip_name1)
-        clip_path2 = folder_paths.get_full_path("clip", clip_name2)
-        clip_paths = (clip_path1, clip_path2)
-        return (self.load_patcher(clip_paths, get_clip_type(type), self.load_data(clip_paths)),)
-
+        clip_path1 = folder_paths.get_full_path('clip', clip_name1)
+        clip_path2 = folder_paths.get_full_path('clip', clip_name2)
+        clip_paths = clip_path1, clip_path2
+        return self.load_patcher(clip_paths, get_clip_type(type), self.
+            load_data(clip_paths)),
 class TripleClipLoaderGGUF(ClipLoaderGGUF):
     @classmethod
     def INPUT_TYPES(s):
-        file_options = (s.get_filename_list(), )
-        return {
-            "required": {
-                "clip_name1": file_options,
-                "clip_name2": file_options,
-                "clip_name3": file_options,
-            }
-        }
-    TITLE = "GGUF TripleCLIPLoader"
-
-    def load_clip(self, clip_name1, clip_name2, clip_name3, type="sd3"):
-        clip_path1 = folder_paths.get_full_path("clip", clip_name1)
-        clip_path2 = folder_paths.get_full_path("clip", clip_name2)
-        clip_path3 = folder_paths.get_full_path("clip", clip_name3)
-        clip_paths = (clip_path1, clip_path2, clip_path3)
-        return (self.load_patcher(clip_paths, get_clip_type(type), self.load_data(clip_paths)),)
-
+        file_options = s.get_filename_list(),
+        return {'required': {'clip_name1': file_options, 'clip_name2':
+            file_options, 'clip_name3': file_options}}
+    TITLE = 'GGUF TripleCLIPLoader'
+    def load_clip(self, clip_name1, clip_name2, clip_name3, type='sd3'):
+        clip_path1 = folder_paths.get_full_path('clip', clip_name1)
+        clip_path2 = folder_paths.get_full_path('clip', clip_name2)
+        clip_path3 = folder_paths.get_full_path('clip', clip_name3)
+        clip_paths = clip_path1, clip_path2, clip_path3
+        return self.load_patcher(clip_paths, get_clip_type(type), self.
+            load_data(clip_paths)),
 QUANTIZATION_THRESHOLD = 1024
 REARRANGE_THRESHOLD = 512
 MAX_TENSOR_NAME_LENGTH = 127
-
 class ModelTemplate:
-    arch = "invalid"
+    arch = 'invalid'
     shape_fix = False
     keys_detect = []
     keys_banned = []
-
 class ModelHYVID(ModelTemplate):
-    arch = "hyvid"
-    keys_detect = [
-        ("transformer_blocks.0.attn.norm_added_k.weight",),
-        ("double_blocks.0.img_attn.proj.weight",),
-    ]
-    keys_banned = ["transformer_blocks.0.attn.norm_added_k.weight",]
-
+    arch = 'hyvid'
+    keys_detect = [('transformer_blocks.0.attn.norm_added_k.weight',), (
+        'double_blocks.0.img_attn.proj.weight',)]
+    keys_banned = ['transformer_blocks.0.attn.norm_added_k.weight']
 class ModelSD3(ModelTemplate):
-    arch = "sd3"
-    keys_detect = [
-        ("transformer_blocks.0.attn.add_q_proj.weight",),
-        ("joint_blocks.0.x_block.attn.qkv.weight",),
-    ]
-    keys_banned = ["transformer_blocks.0.attn.add_q_proj.weight",]
-
+    arch = 'sd3'
+    keys_detect = [('transformer_blocks.0.attn.add_q_proj.weight',), (
+        'joint_blocks.0.x_block.attn.qkv.weight',)]
+    keys_banned = ['transformer_blocks.0.attn.add_q_proj.weight']
 class ModelAura(ModelTemplate):
-    arch = "aura"
-    keys_detect = [
-        ("double_layers.3.modX.1.weight",),
-        ("joint_transformer_blocks.3.ff_context.out_projection.weight",),
-    ]
-    keys_banned = ["joint_transformer_blocks.3.ff_context.out_projection.weight",]
-
+    arch = 'aura'
+    keys_detect = [('double_layers.3.modX.1.weight',), (
+        'joint_transformer_blocks.3.ff_context.out_projection.weight',)]
+    keys_banned = [
+        'joint_transformer_blocks.3.ff_context.out_projection.weight']
 class ModelLTXV(ModelTemplate):
-    arch = "ltxv"
-    keys_detect = [
-        (
-            "adaln_single.emb.timestep_embedder.linear_2.weight",
-            "transformer_blocks.27.scale_shift_table",
-            "caption_projection.linear_2.weight",
-        )
-    ]
-
+    arch = 'ltxv'
+    keys_detect = [('adaln_single.emb.timestep_embedder.linear_2.weight',
+        'transformer_blocks.27.scale_shift_table',
+        'caption_projection.linear_2.weight')]
 class ModelSDXL(ModelTemplate):
-    arch = "sdxl"
+    arch = 'sdxl'
     shape_fix = True
-    keys_detect = [
-        ("down_blocks.0.downsamplers.0.conv.weight", "add_embedding.linear_1.weight",),
-        (
-            "input_blocks.3.0.op.weight", "input_blocks.6.0.op.weight",
-            "output_blocks.2.2.conv.weight", "output_blocks.5.2.conv.weight",
-        ),
-        ("label_emb.0.0.weight",),
-    ]
-
+    keys_detect = [('down_blocks.0.downsamplers.0.conv.weight',
+        'add_embedding.linear_1.weight'), ('input_blocks.3.0.op.weight',
+        'input_blocks.6.0.op.weight', 'output_blocks.2.2.conv.weight',
+        'output_blocks.5.2.conv.weight'), ('label_emb.0.0.weight',)]
 class ModelSD1(ModelTemplate):
-    arch = "sd1"
+    arch = 'sd1'
     shape_fix = True
-    keys_detect = [
-        ("down_blocks.0.downsamplers.0.conv.weight",),
-        (
-            "input_blocks.3.0.op.weight", "input_blocks.6.0.op.weight", "input_blocks.9.0.op.weight",
-            "output_blocks.2.1.conv.weight", "output_blocks.5.2.conv.weight", "output_blocks.8.2.conv.weight"
-        ),
-    ]
-
+    keys_detect = [('down_blocks.0.downsamplers.0.conv.weight',), (
+        'input_blocks.3.0.op.weight', 'input_blocks.6.0.op.weight',
+        'input_blocks.9.0.op.weight', 'output_blocks.2.1.conv.weight',
+        'output_blocks.5.2.conv.weight', 'output_blocks.8.2.conv.weight')]
 arch_list = [ModelSD3, ModelAura, ModelLTXV, ModelHYVID, ModelSDXL, ModelSD1]
-
 def is_model_arch(model, state_dict):
     matched = False
     invalid = False
@@ -489,22 +400,20 @@ def is_model_arch(model, state_dict):
             matched = True
             invalid = any(key in state_dict for key in model.keys_banned)
             break
-    assert not invalid, "Model architecture not allowed for conversion! (i.e. reference VS diffusers format)"
+    assert not invalid, 'Model architecture not allowed for conversion! (i.e. reference VS diffusers format)'
     return matched
-
 def detect_arch(state_dict):
     model_arch = None
     for arch in arch_list:
         if is_model_arch(arch, state_dict):
             model_arch = arch
             break
-    assert model_arch is not None, "Unknown model architecture!"
+    assert model_arch is not None, 'Unknown model architecture!'
     return model_arch
-
 def load_state_dict(path):
     state_dict = load_file(path)
     prefix = None
-    for pfx in ["model.diffusion_model.", "model."]:
+    for pfx in ['model.diffusion_model.', 'model.']:
         if any([x.startswith(pfx) for x in state_dict.keys()]):
             prefix = pfx
             break
@@ -513,137 +422,158 @@ def load_state_dict(path):
         if prefix and prefix not in k:
             continue
         if prefix:
-            k = k.replace(prefix, "")
+            k = k.replace(prefix, '')
         sd[k] = v
     return sd
-
 def load_model(path):
     state_dict = load_state_dict(path)
     model_arch = detect_arch(state_dict)
-    print(f"* Architecture detected from input: {model_arch.arch}")
+    print(f'* Architecture detected from input: {model_arch.arch}')
     writer = GGUFWriter(path=None, arch=model_arch.arch)
-    return (writer, state_dict, model_arch)
-
+    return writer, state_dict, model_arch
 def handle_tensors(args, writer, state_dict, model_arch):
-    name_lengths = tuple(sorted(
-        ((key, len(key)) for key in state_dict.keys()),
-        key=lambda item: item[1],
-        reverse=True,
-    ))
+    name_lengths = tuple(sorted(((key, len(key)) for key in state_dict.keys
+        ()), key=lambda item: item[1], reverse=True))
     if not name_lengths:
         return
     max_name_len = name_lengths[0][1]
     if max_name_len > MAX_TENSOR_NAME_LENGTH:
-        bad_list = ", ".join(f"{key!r} ({namelen})" for key, namelen in name_lengths if namelen > MAX_TENSOR_NAME_LENGTH)
-        raise ValueError(f"Can only handle tensor names up to {MAX_TENSOR_NAME_LENGTH} characters. Tensors exceeding the limit: {bad_list}")
+        bad_list = ', '.join(f'{key!r} ({namelen})' for key, namelen in
+            name_lengths if namelen > MAX_TENSOR_NAME_LENGTH)
+        raise ValueError(
+            f'Can only handle tensor names up to {MAX_TENSOR_NAME_LENGTH} characters. Tensors exceeding the limit: {bad_list}'
+            )
     for key, data in tqdm(state_dict.items()):
         old_dtype = data.dtype
         if data.dtype == torch.bfloat16:
             data = data.to(torch.float32).numpy()
-        elif data.dtype in [getattr(torch, "float8_e4m3fn", "_invalid"), getattr(torch, "float8_e5m2", "_invalid")]:
+        elif data.dtype in [getattr(torch, 'float8_e4m3fn', '_invalid'),
+            getattr(torch, 'float8_e5m2', '_invalid')]:
             data = data.to(torch.float16).numpy()
         else:
             data = data.numpy()
         n_dims = len(data.shape)
         data_shape = data.shape
-        data_qtype = getattr(
-            GGMLQuantizationType,
-            "BF16" if old_dtype == torch.bfloat16 else "F16"
-        )
-
+        data_qtype = getattr(GGMLQuantizationType, 'BF16' if old_dtype ==
+            torch.bfloat16 else 'F16')
         n_params = 1
         for dim_size in data_shape:
             n_params *= dim_size
-
-        blacklist = {
-            "time_embedding.",
-            "add_embedding.",
-            "time_in.",
-            "txt_in.",
-            "vector_in.",
-            "img_in.",
-            "guidance_in.",
-            "final_layer.",
-        }
-
+        blacklist = {'time_embedding.', 'add_embedding.', 'time_in.',
+            'txt_in.', 'vector_in.', 'img_in.', 'guidance_in.', 'final_layer.'}
         if old_dtype in (torch.float32, torch.bfloat16):
             if n_dims == 1:
                 data_qtype = GGMLQuantizationType.F32
-
             elif n_params <= QUANTIZATION_THRESHOLD:
                 data_qtype = GGMLQuantizationType.F32
-
-            elif ".weight" in key and any(x in key for x in blacklist):
+            elif '.weight' in key and any(x in key for x in blacklist):
                 data_qtype = GGMLQuantizationType.F32
-
-        if (model_arch.shape_fix
-            and n_dims > 1
-            and n_params >= REARRANGE_THRESHOLD
-            and (n_params / 256).is_integer()
-            and not (data.shape[-1] / 256).is_integer()
-        ):
+        if (model_arch.shape_fix and n_dims > 1 and n_params >=
+            REARRANGE_THRESHOLD and (n_params / 256).is_integer() and not (
+            data.shape[-1] / 256).is_integer()):
             orig_shape = data.shape
             data = data.reshape(n_params // 256, 256)
-            writer.add_array(f"comfy.gguf.orig_shape.{key}", tuple(int(dim) for dim in orig_shape))
-
+            writer.add_array(f'comfy.gguf.orig_shape.{key}', tuple(int(dim) for
+                dim in orig_shape))
         try:
             data = quantize(data, data_qtype)
         except (AttributeError, QuantError) as e:
-            tqdm.write(f"falling back to F16: {e}")
+            tqdm.write(f'falling back to F16: {e}')
             data_qtype = GGMLQuantizationType.F16
             data = quantize(data, data_qtype)
-
         new_name = key
         shape_str = f"{{{', '.join(str(n) for n in reversed(data.shape))}}}"
-        tqdm.write(f"{f'%-{max_name_len + 4}s' % f'{new_name}'} {old_dtype} --> {data_qtype.name}, shape = {shape_str}")
-
+        tqdm.write(
+            f"{f'%-{max_name_len + 4}s' % f'{new_name}'} {old_dtype} --> {data_qtype.name}, shape = {shape_str}"
+            )
         writer.add_tensor(new_name, data, raw_dtype=data_qtype)
-
-if "select_safetensors" not in folder_paths.folder_names_and_paths:
-    orig = folder_paths.folder_names_and_paths.get("diffusion_models", folder_paths.folder_names_and_paths.get("checkpoints", [[], set()]))
-    folder_paths.folder_names_and_paths["select_safetensors"] = (orig[0], {".safetensors"})
-
+if 'select_safetensors' not in folder_paths.folder_names_and_paths:
+    orig = folder_paths.folder_names_and_paths.get('diffusion_models',
+        folder_paths.folder_names_and_paths.get('checkpoints', [[], set()]))
+    folder_paths.folder_names_and_paths['select_safetensors'] = orig[0], {
+        '.safetensors'}
 class GGUFSave:
     def __init__(self):
         self.output_dir = folder_paths.get_output_directory()
-
     @classmethod
     def INPUT_TYPES(s):
-        return {
-            "required": {
-                "select_safetensors": (s.get_filename_list(),),
-            }
-        }
+        return {'required': {'select_safetensors': (s.get_filename_list(),)}}
     RETURN_TYPES = ()
-    FUNCTION = "save"
+    FUNCTION = 'save'
     OUTPUT_NODE = True
-    CATEGORY = "gguf"
-    TITLE = "GGUF Convertor (Alpha)"
-
+    CATEGORY = 'gguf'
+    TITLE = 'GGUF Convertor (Alpha)'
     @classmethod
     def get_filename_list(s):
         files = []
-        files += folder_paths.get_filename_list("select_safetensors")
+        files += folder_paths.get_filename_list('select_safetensors')
         return sorted(files)
-
     def save(self, select_safetensors):
-        path = folder_paths.get_full_path("select_safetensors", select_safetensors)
+        path = folder_paths.get_full_path('select_safetensors',
+            select_safetensors)
         writer, state_dict, model_arch = load_model(path)
         writer.add_quantization_version(GGML_QUANT_VERSION)
         if next(iter(state_dict.values())).dtype == torch.bfloat16:
-            output_path = f"{self.output_dir}/{os.path.splitext(select_safetensors)[0]}-bf16.gguf"
+            output_path = (
+                f'{self.output_dir}/{os.path.splitext(select_safetensors)[0]}-bf16.gguf'
+                )
             writer.add_file_type(LlamaFileType.MOSTLY_BF16)
         else:
-            output_path = f"{self.output_dir}/{os.path.splitext(select_safetensors)[0]}-f16.gguf"
+            output_path = (
+                f'{self.output_dir}/{os.path.splitext(select_safetensors)[0]}-f16.gguf'
+                )
             writer.add_file_type(LlamaFileType.MOSTLY_F16)
         if os.path.isfile(output_path):
-            input("Output exists enter to continue or ctrl+c to abort!")
+            input('Output exists enter to continue or ctrl+c to abort!')
         handle_tensors(output_path, writer, state_dict, model_arch)
         writer.write_header_to_file(path=output_path)
         writer.write_kv_data_to_file()
         writer.write_tensors_to_file(progress=True)
         writer.close()
-        return{}
+        return {}
+def quantize_to_fp8(tensor):
+    if tensor.dtype != torch.bfloat16:
+        raise ValueError('Input tensor must be in BF16 format.')
+    tensor = tensor.to(torch.float16)
+    fp8_max = 240.0
+    fp8_min = -fp8_max
+    clamped_tensor = tensor.clamp(min=fp8_min, max=fp8_max)
+    scale = fp8_max / torch.max(torch.abs(clamped_tensor))
+    quantized_tensor = torch.round(clamped_tensor * scale) / scale
+    return quantized_tensor.to(torch.float8_e4m3fn)
+class TENSORCut:
+    def __init__(self):
+        self.output_dir = folder_paths.get_output_directory()
+    @classmethod
+    def INPUT_TYPES(s):
+        return {'required': {'select_safetensors': (s.get_filename_list(),)}}
+    RETURN_TYPES = ()
+    FUNCTION = 'cut'
+    OUTPUT_NODE = True
+    CATEGORY = 'gguf'
+    TITLE = 'TENSOR Cutter (Beta)'
+    @classmethod
+    def get_filename_list(s):
+        files = []
+        files += folder_paths.get_filename_list('select_safetensors')
+        return sorted(files)
+    def cut(self, select_safetensors):
+        input_file = folder_paths.get_full_path('select_safetensors',
+            select_safetensors)
+        output_file = (
+            f'{self.output_dir}/{os.path.splitext(select_safetensors)[0]}_fp8_e4m3fn.safetensors'
+            )
+        data = load_file(input_file)
+        quantized_data = {}
+        print('Starting quantization process...')
+        for key, tensor in tqdm(data.items(), desc='Quantizing tensors',
+            unit='tensor'):
+            tensor = tensor.to(dtype=torch.bfloat16, device='cuda')
+            quantized_tensor = quantize_to_fp8(tensor)
+            quantized_data[key] = quantized_tensor.cpu()
+        save_file(quantized_data, output_file)
+        print(f'Quantized safetensors saved to {output_file}.')
+        return {}
 
 NODE_CLASS_MAPPINGS = {
     "LoaderGGUF": LoaderGGUF,
@@ -651,5 +581,6 @@ NODE_CLASS_MAPPINGS = {
     "DualClipLoaderGGUF": DualClipLoaderGGUF,
     "TripleClipLoaderGGUF": TripleClipLoaderGGUF,
     "LoaderGGUFAdvanced": LoaderGGUFAdvanced,
+    "TENSORCut": TENSORCut,
     "GGUFSave": GGUFSave,
 }
