@@ -56,10 +56,19 @@ for the demo workflow (picture) above, you could get the test model gguf [here](
 - design your own prompt; or
 - generate a random prompt/descriptor by the [simulator](https://prompt.calcuis.us) (though it might not be applicable for all)
 
+#### cutter (new feature: cut safetensors in half - bf16 to fp8)
+- drag safetensors file(s) to diffusion_models folder (./ComfyUI/models/diffusion_models)
+- choose the second last option from the gguf menu: `TENSOR Cutter (Beta)`
+- select your safetensors model inside the box; don't need to connect anything; it works independently
+- click `Queue` (run); then you can simply check the processing progress from console
+- when it was done; the quantized/half-cut safetensors file will be saved to the output folder (./ComfyUI/output)
+
+![screenshot](https://raw.githubusercontent.com/calcuis/comfy/master/cutter.png)
+
 #### convertor (new feature: convert safetensors to gguf)
 - drag safetensors file(s) to diffusion_models folder (./ComfyUI/models/diffusion_models)
 - choose the last option from the gguf menu: `GGUF Convertor (Alpha)`
-- select your safetensors model inside the box; don't need to connect anything; it works independently
+- select your safetensors model inside the box; don't need to connect anything; it works independently also
 - click `Queue` (run); then you can simply check the processing progress from console
 - when it was done; the converted gguf file will be saved to the output folder (./ComfyUI/output)
 
