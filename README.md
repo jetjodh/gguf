@@ -39,7 +39,7 @@ you are also welcome to get the node through other available channels, i.e., com
 gguf node is no conflict with the popular comfyui-gguf node (can coexist; then you could test them both; or mixing up use, switch in between freely, all for your own purpose); and is more lightweight (no dependencies needed), more function (i.e., built-in gguf convertor), compatible with the latest version numpy and other updated libraries come with comfyui
 
 ![screenshot](https://raw.githubusercontent.com/calcuis/comfy/master/demo1.png)
-for the demo workflow (picture) above, you could get the test model gguf [here](https://huggingface.co/calcuis/vauxz3d), test it rather you can get the similar outcome or not
+for the demo workflow (picture) above, you could get the test model gguf [here](https://huggingface.co/calcuis/vauxz3d), test it rather you can generate the similar outcome or not
 
 #### setup (in general)
 - drag gguf file(s) to diffusion_models folder (./ComfyUI/models/diffusion_models)
