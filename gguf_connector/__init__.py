@@ -1,12 +1,11 @@
-# !/usr/bin/env python3
-
-__version__="1.0.6"
-
+__version__ = '1.0.7'
 def __init__():
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument('-v', '--version', action='version', version='%(prog)s ' + __version__)
-    subparsers = parser.add_subparsers(title="subcommands", dest="subcommand", help="choose a subcommand:")
+    parser.add_argument('-v', '--version', action='version', version=
+        '%(prog)s ' + __version__)
+    subparsers = parser.add_subparsers(title='subcommands', dest=
+        'subcommand', help='choose a subcommand:')
     subparsers.add_parser('cpp', help='[cpp] connector cpp')
     subparsers.add_parser('gpp', help='[gpp] connector gpp')
     subparsers.add_parser('v', help='[v] vision connector')
@@ -20,6 +19,7 @@ def __init__():
     subparsers.add_parser('n', help='[n] clone node')
     subparsers.add_parser('r', help='[r] metadata reader')
     subparsers.add_parser('r2', help='[r2] metadata fast reader (beta)')
+    subparsers.add_parser('q', help='[q] safetensors quantizor (beta)')
     subparsers.add_parser('t', help='[t] safetensors convertor (beta)')
     subparsers.add_parser('pp', help='[pp] pdf analyzor pp')
     subparsers.add_parser('cp', help='[cp] pdf analyzor cp')
@@ -32,39 +32,41 @@ def __init__():
         from gguf_connector import m
     if args.subcommand == 'n':
         from gguf_connector import n
-    elif args.subcommand=="r":
+    elif args.subcommand == 'r':
         from gguf_connector import r
-    elif args.subcommand=="r2":
+    elif args.subcommand == 'r2':
         from gguf_connector import r2
-    elif args.subcommand=="i":
+    elif args.subcommand == 'i':
         from gguf_connector import i
-    elif args.subcommand=="w":
+    elif args.subcommand == 'w':
         from gguf_connector import w
-    elif args.subcommand=="o":
+    elif args.subcommand == 'o':
         from gguf_connector import o
-    elif args.subcommand=="v":
+    elif args.subcommand == 'v':
         from gguf_connector import v
-    elif args.subcommand=="y":
+    elif args.subcommand == 'y':
         from gguf_connector import y
-    elif args.subcommand=="t":
+    elif args.subcommand == 't':
         from gguf_connector import t
-    elif args.subcommand=="cg":
+    elif args.subcommand == 'q':
+        from gguf_connector import q
+    elif args.subcommand == 'cg':
         from gguf_connector import cg
-    elif args.subcommand=="pg":
+    elif args.subcommand == 'pg':
         from gguf_connector import pg
-    elif args.subcommand=="cs":
+    elif args.subcommand == 'cs':
         from gguf_connector import cs
-    elif args.subcommand=="ps":
+    elif args.subcommand == 'ps':
         from gguf_connector import ps
-    elif args.subcommand=="cp":
+    elif args.subcommand == 'cp':
         from gguf_connector import cp
-    elif args.subcommand=="pp":
+    elif args.subcommand == 'pp':
         from gguf_connector import pp
-    elif args.subcommand=="c":
+    elif args.subcommand == 'c':
         from gguf_connector import c
-    elif args.subcommand=="cpp":
+    elif args.subcommand == 'cpp':
         from gguf_connector import cpp
-    elif args.subcommand=="g":
+    elif args.subcommand == 'g':
         from gguf_connector import g
-    elif args.subcommand=="gpp":
+    elif args.subcommand == 'gpp':
         from gguf_connector import gpp

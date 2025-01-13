@@ -1,3 +1,3 @@
 import webbrowser
-print("activating the default browser...")
-webbrowser.open("https://gguf.org")
+print('activating the default browser...')
+webbrowser.open('https://gguf.org')
