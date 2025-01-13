@@ -73,7 +73,7 @@ for the demo workflow (picture) above, you could get the test model gguf [here](
 - when it was done; the converted gguf file will be saved to the output folder (./ComfyUI/output)
 
 ![screenshot](https://raw.githubusercontent.com/calcuis/comfy/master/convertor.png)
-**little tips**: to make a so-called `fast` model; could try to cut it half (use cutter) first; and convert the trimmed model (fp8) to gguf (pretty much the same file size with the bf16 quantized output but less tensors inside; load fast theoretically, no guarantee, you should test it probably, and might also prepare for the significant quality loss)
+**little tips**: to make a so-called `fast` model; could try to cut it half (use cutter) first; and convert the trimmed model (fp8) to gguf (pretty much the same file size with the bf16 quantized output but less tensors inside; load fast theoretically, no guarantee, you should test it probably, and might also be prepared for the significant quality loss)
 
 #### reference
 [comfyui](https://github.com/comfyanonymous/ComfyUI)
