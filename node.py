@@ -12,6 +12,7 @@ from .gguf_connector import reader as gr
 from .gguf_connector.writer import GGUFWriter, GGMLQuantizationType
 from .gguf_connector.quant import quantize, QuantError
 from .gguf_connector.const import GGML_QUANT_VERSION, LlamaFileType
+
 def update_folder_names_and_paths(key, targets=[]):
     base = folder_paths.folder_names_and_paths.get(key, ([], {}))
     base = base[0] if isinstance(base[0], (list, set, tuple)) else []
