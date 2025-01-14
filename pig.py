@@ -3,7 +3,6 @@ import comfy.ops
 import comfy.model_management
 from .fat import dequantize_tensor, is_quantized
 from .gguf_connector import reader as gr
-
 class GGMLTensor(torch.Tensor):
     def __init__(self, *args, tensor_type, tensor_shape, patches=[], **kwargs):
         super().__init__()
