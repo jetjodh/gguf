@@ -78,7 +78,7 @@ for the demo workflow (picture) above, you could get the test model gguf [here](
 #### reference
 [comfyui](https://github.com/comfyanonymous/ComfyUI)
 [confyui_vlm_nodes](https://github.com/gokayfem/ComfyUI_VLM_nodes)
-[comfyui-gguf](https://github.com/city96/ComfyUI-GGUF)
+[comfyui-gguf](https://github.com/city96/ComfyUI-GGUF) (special thanks)
 [gguf-comfy](https://github.com/calcuis/gguf-comfy)
 [gguf-connector](https://github.com/calcuis/gguf-connector)
 [testkit](https://huggingface.co/calcuis/gguf-node)
