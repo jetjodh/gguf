@@ -6,13 +6,12 @@ import comfy.model_management
 import comfy.model_patcher
 from tqdm import tqdm
 from safetensors.torch import load_file, save_file
-from .ops import GGMLTensor, GGMLOps, move_patch_to_device
-from .dequant import is_quantized, is_torch_compatible
+from .pig import GGMLTensor, GGMLOps, move_patch_to_device
+from .fat import is_quantized, is_torch_compatible
 from .gguf_connector import reader as gr
 from .gguf_connector.writer import GGUFWriter, GGMLQuantizationType
 from .gguf_connector.quant import quantize, QuantError
 from .gguf_connector.const import GGML_QUANT_VERSION, LlamaFileType
-
 def update_folder_names_and_paths(key, targets=[]):
     base = folder_paths.folder_names_and_paths.get(key, ([], {}))
     base = base[0] if isinstance(base[0], (list, set, tuple)) else []
@@ -574,7 +573,6 @@ class TENSORCut:
         save_file(quantized_data, output_file)
         print(f'Quantized safetensors saved to {output_file}.')
         return {}
-
 NODE_CLASS_MAPPINGS = {
     "LoaderGGUF": LoaderGGUF,
     "ClipLoaderGGUF": ClipLoaderGGUF,
