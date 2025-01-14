@@ -36,7 +36,7 @@ check the dropdown menu for `gguf`
 #### other(s): get it somewhere else trustworthy/reliable
 you are also welcome to get the node through other available channels, i.e., comfy-cli, comfyui-manager (search `gguf` from the bar; and opt to install it there should be fine; see picture below), etc.
 ![screenshot](https://raw.githubusercontent.com/calcuis/comfy/master/comfyui-manager.png)
-gguf node is no conflict with the popular comfyui-gguf node (can coexist; and this project actually inspired by it; then you could test them both; or mixing up use, switch in between freely, all for your own purpose); and is more lightweight (no dependencies needed), more function (i.e., built-in tensor cutter, gguf convertor), compatible with the latest version numpy and other updated libraries come with comfyui
+gguf node is no conflict with the popular comfyui-gguf node (can coexist; and this project actually inspired by it; we are here honor their developers' contribution; then you could test them both; or mixing up use, switch in between freely, all for your own purpose); and is more lightweight (no dependencies needed), more function (i.e., built-in tensor cutter, gguf convertor), compatible with the latest version numpy and other updated libraries come with comfyui
 
 ![screenshot](https://raw.githubusercontent.com/calcuis/comfy/master/demo1.png)
 for the demo workflow (picture) above, you could get the test model gguf [here](https://huggingface.co/calcuis/vauxz3d), test it rather you can generate the similar outcome or not
