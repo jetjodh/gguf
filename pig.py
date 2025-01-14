@@ -1,7 +1,7 @@
 import torch
 import comfy.ops
 import comfy.model_management
-from .dequant import dequantize_tensor, is_quantized
+from .fat import dequantize_tensor, is_quantized
 from .gguf_connector import reader as gr
 
 class GGMLTensor(torch.Tensor):
