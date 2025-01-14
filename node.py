@@ -1,5 +1,4 @@
-import torch
-import logging, folder_paths, collections, os
+import torch, logging, folder_paths, collections, os
 import comfy.sd
 import comfy.utils
 import comfy.model_management
