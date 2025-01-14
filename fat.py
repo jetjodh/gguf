@@ -2,7 +2,6 @@ import torch
 from tqdm import tqdm
 from .gguf_connector import quant as gq
 from .gguf_connector import reader as gr
-
 TORCH_COMPATIBLE_QTYPES = {None, gr.GGMLQuantizationType.F32, gr.GGMLQuantizationType.F16}
 def is_torch_compatible(tensor):
     return tensor is None or getattr(tensor, 'tensor_type', None
