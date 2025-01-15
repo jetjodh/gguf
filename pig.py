@@ -759,6 +759,7 @@ class TENSORCut:
         save_file(quantized_data, output_file)
         print(f'Quantized safetensors saved to {output_file}.')
         return {}
+
 NODE_CLASS_MAPPINGS = {
     "LoaderGGUF": LoaderGGUF,
     "ClipLoaderGGUF": ClipLoaderGGUF,
