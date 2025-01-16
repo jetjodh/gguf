@@ -11,6 +11,81 @@ from .gguf_connector.writer import GGUFWriter, GGMLQuantizationType
 from .gguf_connector.const import GGML_QUANT_VERSION, LlamaFileType
 from .gguf_connector.quant import quantize, QuantError
 from .gguf_connector.quant2 import dequantize_tensor, is_quantized, is_torch_compatible
+class GGUFModelPatcher(comfy.model_patcher.ModelPatcher):
+    patch_on_device = False
+    def patch_weight_to_device(self, key, device_to=None, inplace_update=False
+        ):
+        if key not in self.patches:
+            return
+        weight = comfy.utils.get_attr(self.model, key)
+        try:
+            from comfy.lora import calculate_weight
+        except Exception:
+            calculate_weight = self.calculate_weight
+        patches = self.patches[key]
+        if is_quantized(weight):
+            out_weight = weight.to(device_to)
+            patches = load_patch_to_device(patches, self.load_device if
+                self.patch_on_device else self.offload_device)
+            out_weight.patches = [(calculate_weight, patches, key)]
+        else:
+            inplace_update = self.weight_inplace_update or inplace_update
+            if key not in self.backup:
+                self.backup[key] = collections.namedtuple('Dimension', [
+                    'weight', 'inplace_update'])(weight.to(device=self.
+                    offload_device, copy=inplace_update), inplace_update)
+            if device_to is not None:
+                temp_weight = comfy.model_management.cast_to_device(weight,
+                    device_to, torch.float32, copy=True)
+            else:
+                temp_weight = weight.to(torch.float32, copy=True)
+            out_weight = calculate_weight(patches, temp_weight, key)
+            out_weight = comfy.float.stochastic_rounding(out_weight, weight
+                .dtype)
+        if inplace_update:
+            comfy.utils.copy_to_param(self.model, key, out_weight)
+        else:
+            comfy.utils.set_attr_param(self.model, key, out_weight)
+    def unpatch_model(self, device_to=None, unpatch_weights=True):
+        if unpatch_weights:
+            for p in self.model.parameters():
+                if is_torch_compatible(p):
+                    continue
+                patches = getattr(p, 'patches', [])
+                if len(patches) > 0:
+                    p.patches = []
+        return super().unpatch_model(device_to=device_to, unpatch_weights=
+            unpatch_weights)
+    mmap_released = False
+    def load(self, *args, force_patch_weights=False, **kwargs):
+        super().load(*args, force_patch_weights=True, **kwargs)
+        if not self.mmap_released:
+            linked = []
+            if kwargs.get('lowvram_model_memory', 0) > 0:
+                for n, m in self.model.named_modules():
+                    if hasattr(m, 'weight'):
+                        device = getattr(m.weight, 'device', None)
+                        if device == self.offload_device:
+                            linked.append((n, m))
+                            continue
+                    if hasattr(m, 'bias'):
+                        device = getattr(m.bias, 'device', None)
+                        if device == self.offload_device:
+                            linked.append((n, m))
+                            continue
+            if linked:
+                print(f'Attempting to release mmap ({len(linked)})')
+                for n, m in linked:
+                    m.to(self.load_device).to(self.offload_device)
+            self.mmap_released = True
+    def clone(self, *args, **kwargs):
+        src_cls = self.__class__
+        self.__class__ = GGUFModelPatcher
+        n = super().clone(*args, **kwargs)
+        n.__class__ = GGUFModelPatcher
+        self.__class__ = src_cls
+        n.patch_on_device = getattr(self, 'patch_on_device', False)
+        return n
 class GGMLTensor(torch.Tensor):
     def __init__(self, *args, tensor_type, tensor_shape, patches=[], **kwargs):
         super().__init__()
@@ -34,8 +109,8 @@ class GGMLTensor(torch.Tensor):
             return super().copy_(*args, **kwargs)
         except Exception as e:
             print(f"ignoring 'copy_' on tensor: {e}")
-    def new_empty(self, size, *args, **kwargs):
-        new_tensor = super().new_empty(size, *args, **kwargs)
+    def empty_(self, size, *args, **kwargs):
+        new_tensor = super().empty_(size, *args, **kwargs)
         return GGMLTensor(new_tensor, tensor_type=getattr(self,
             'tensor_type', None), tensor_shape=size, patches=getattr(self,
             'patches', []).copy())
@@ -108,7 +183,7 @@ class GGMLLayer(torch.nn.Module):
         patch_list = []
         device = tensor.device
         for function, patches, key in getattr(tensor, 'patches', []):
-            patch_list += move_patch_to_device(patches, device)
+            patch_list += load_patch_to_device(patches, device)
         weight = dequantize_tensor(tensor, dtype, self.dequant_dtype)
         if isinstance(weight, GGMLTensor):
             weight.__class__ = torch.Tensor
@@ -189,16 +264,16 @@ class GGMLOps(comfy.ops.manual_cast):
             weight, bias = self.cast_bias_weight(input)
             return torch.nn.functional.group_norm(input, self.num_groups,
                 weight, bias, self.eps)
-def move_patch_to_device(item, device):
+def load_patch_to_device(item, device):
     if isinstance(item, torch.Tensor):
         return item.to(device, non_blocking=True)
     elif isinstance(item, tuple):
-        return tuple(move_patch_to_device(x, device) for x in item)
+        return tuple(load_patch_to_device(x, device) for x in item)
     elif isinstance(item, list):
-        return [move_patch_to_device(x, device) for x in item]
+        return [load_patch_to_device(x, device) for x in item]
     else:
         return item
-def update_folder_names_and_paths(key, targets=[]):
+def get_folder_names_and_paths(key, targets=[]):
     base = folder_paths.folder_names_and_paths.get(key, ([], {}))
     base = base[0] if isinstance(base[0], (list, set, tuple)) else []
     target = next((x for x in targets if x in folder_paths.
@@ -208,8 +283,8 @@ def update_folder_names_and_paths(key, targets=[]):
     if base and base != orig:
         logging.warning(
             f'Unknown file list already present on key {key}: {base}')
-update_folder_names_and_paths('model_gguf', ['diffusion_models', 'unet'])
-update_folder_names_and_paths('clip_gguf', ['text_encoders', 'clip'])
+get_folder_names_and_paths('model_gguf', ['diffusion_models', 'unet'])
+get_folder_names_and_paths('clip_gguf', ['text_encoders', 'clip'])
 IMG_ARCH_LIST = {'flux', 'sd1', 'sdxl', 'sd3', 'aura', 'ltxv', 'hyvid'}
 TXT_ARCH_LIST = {'t5', 't5encoder', 'llama'}
 def get_orig_shape(reader, tensor_name):
@@ -225,7 +300,7 @@ def get_orig_shape(reader, tensor_name):
             )
     return torch.Size(tuple(int(field.parts[part_idx][0]) for part_idx in
         field.data))
-def gguf_sd_loader(path, handle_prefix='model.diffusion_model.',
+def load_gguf_sd(path, handle_prefix='model.diffusion_model.',
     return_arch=False):
     reader = gr.GGUFReader(path)
     has_prefix = False
@@ -321,8 +396,8 @@ def llama_permute(raw_sd, n_head, n_head_kv):
             v.data = permute(v.data, n_head_kv)
         sd[k] = v
     return sd
-def gguf_clip_loader(path):
-    sd, arch = gguf_sd_loader(path, return_arch=True)
+def load_gguf_clip(path):
+    sd, arch = load_gguf_sd(path, return_arch=True)
     if arch in {'t5', 't5encoder'}:
         sd = sd_map_replace(sd, T5_SD_MAP)
     elif arch in {'llama'}:
@@ -336,81 +411,6 @@ def gguf_clip_loader(path):
     else:
         pass
     return sd
-class GGUFModelPatcher(comfy.model_patcher.ModelPatcher):
-    patch_on_device = False
-    def patch_weight_to_device(self, key, device_to=None, inplace_update=False
-        ):
-        if key not in self.patches:
-            return
-        weight = comfy.utils.get_attr(self.model, key)
-        try:
-            from comfy.lora import calculate_weight
-        except Exception:
-            calculate_weight = self.calculate_weight
-        patches = self.patches[key]
-        if is_quantized(weight):
-            out_weight = weight.to(device_to)
-            patches = move_patch_to_device(patches, self.load_device if
-                self.patch_on_device else self.offload_device)
-            out_weight.patches = [(calculate_weight, patches, key)]
-        else:
-            inplace_update = self.weight_inplace_update or inplace_update
-            if key not in self.backup:
-                self.backup[key] = collections.namedtuple('Dimension', [
-                    'weight', 'inplace_update'])(weight.to(device=self.
-                    offload_device, copy=inplace_update), inplace_update)
-            if device_to is not None:
-                temp_weight = comfy.model_management.cast_to_device(weight,
-                    device_to, torch.float32, copy=True)
-            else:
-                temp_weight = weight.to(torch.float32, copy=True)
-            out_weight = calculate_weight(patches, temp_weight, key)
-            out_weight = comfy.float.stochastic_rounding(out_weight, weight
-                .dtype)
-        if inplace_update:
-            comfy.utils.copy_to_param(self.model, key, out_weight)
-        else:
-            comfy.utils.set_attr_param(self.model, key, out_weight)
-    def unpatch_model(self, device_to=None, unpatch_weights=True):
-        if unpatch_weights:
-            for p in self.model.parameters():
-                if is_torch_compatible(p):
-                    continue
-                patches = getattr(p, 'patches', [])
-                if len(patches) > 0:
-                    p.patches = []
-        return super().unpatch_model(device_to=device_to, unpatch_weights=
-            unpatch_weights)
-    mmap_released = False
-    def load(self, *args, force_patch_weights=False, **kwargs):
-        super().load(*args, force_patch_weights=True, **kwargs)
-        if not self.mmap_released:
-            linked = []
-            if kwargs.get('lowvram_model_memory', 0) > 0:
-                for n, m in self.model.named_modules():
-                    if hasattr(m, 'weight'):
-                        device = getattr(m.weight, 'device', None)
-                        if device == self.offload_device:
-                            linked.append((n, m))
-                            continue
-                    if hasattr(m, 'bias'):
-                        device = getattr(m.bias, 'device', None)
-                        if device == self.offload_device:
-                            linked.append((n, m))
-                            continue
-            if linked:
-                print(f'Attempting to release mmap ({len(linked)})')
-                for n, m in linked:
-                    m.to(self.load_device).to(self.offload_device)
-            self.mmap_released = True
-    def clone(self, *args, **kwargs):
-        src_cls = self.__class__
-        self.__class__ = GGUFModelPatcher
-        n = super().clone(*args, **kwargs)
-        n.__class__ = GGUFModelPatcher
-        self.__class__ = src_cls
-        n.patch_on_device = getattr(self, 'patch_on_device', False)
-        return n
 class LoaderGGUF:
     @classmethod
     def INPUT_TYPES(s):
@@ -436,7 +436,7 @@ class LoaderGGUF:
         else:
             ops.Linear.patch_dtype = getattr(torch, patch_dtype)
         model_path = folder_paths.get_full_path('unet', gguf_name)
-        sd = gguf_sd_loader(model_path)
+        sd = load_gguf_sd(model_path)
         model = comfy.sd.load_diffusion_model_state_dict(sd, model_options=
             {'custom_operations': ops})
         if model is None:
@@ -489,7 +489,7 @@ class ClipLoaderGGUF:
         clip_data = []
         for p in ckpt_paths:
             if p.endswith('.gguf'):
-                sd = gguf_clip_loader(p)
+                sd = load_gguf_clip(p)
             else:
                 sd = comfy.utils.load_torch_file(p, safe_load=True)
             clip_data.append(sd)
