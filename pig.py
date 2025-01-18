@@ -1,4 +1,4 @@
-mport comfy.sd
+import comfy.sd
 import comfy.ops
 import comfy.utils
 import comfy.model_patcher
