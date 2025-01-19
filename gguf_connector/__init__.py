@@ -1,4 +1,4 @@
-__version__ = '1.0.8'
+__version__ = '1.0.9'
 def __init__():
     import argparse
     parser = argparse.ArgumentParser()
@@ -18,9 +18,10 @@ def __init__():
     subparsers.add_parser('y', help='[y] download comfy')
     subparsers.add_parser('n', help='[n] clone node')
     subparsers.add_parser('r', help='[r] metadata reader')
-    subparsers.add_parser('r2', help='[r2] metadata fast reader (beta)')
-    subparsers.add_parser('q', help='[q] safetensors quantizor (beta)')
-    subparsers.add_parser('t', help='[t] safetensors convertor (beta)')
+    subparsers.add_parser('r2', help='[r2] metadata fast reader')
+    subparsers.add_parser('q', help='[q] safetensors quantizor')
+    subparsers.add_parser('t', help='[t] safetensors convertor (alpha)')
+    subparsers.add_parser('t2', help='[t2] safetensors convertor (beta)')
     subparsers.add_parser('pp', help='[pp] pdf analyzor pp')
     subparsers.add_parser('cp', help='[cp] pdf analyzor cp')
     subparsers.add_parser('ps', help='[ps] wav recognizor ps')
@@ -48,6 +49,8 @@ def __init__():
         from gguf_connector import y
     elif args.subcommand == 't':
         from gguf_connector import t
+    elif args.subcommand == 't2':
+        from gguf_connector import t2
     elif args.subcommand == 'q':
         from gguf_connector import q
     elif args.subcommand == 'cg':
