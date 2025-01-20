@@ -285,7 +285,7 @@ def get_folder_names_and_paths(key, targets=[]):
             f'Unknown file list already present on key {key}: {base}')
 get_folder_names_and_paths('model_gguf', ['diffusion_models', 'unet'])
 get_folder_names_and_paths('clip_gguf', ['text_encoders', 'clip'])
-IMG_ARCH_LIST = {'flux', 'sd1', 'sdxl', 'sd3', 'aura', 'ltxv', 'hyvid', 'cosmos'}
+CUS_ARCH_LIST = {'flux', 'sd1', 'sdxl', 'sd3', 'aura', 'mochi', 'ltxv', 'hyvid', 'cosmos'}
 TXT_ARCH_LIST = {'t5', 't5encoder', 'llama'}
 def get_orig_shape(reader, tensor_name):
     field_key = f'comfy.gguf.orig_shape.{tensor_name}'
@@ -326,9 +326,9 @@ def load_gguf_sd(path, handle_prefix='model.diffusion_model.',
                 f'Bad type for GGUF general.architecture key: expected string, got {arch_field.types!r}'
                 )
         arch_str = str(arch_field.parts[arch_field.data[-1]], encoding='utf-8')
-        if arch_str not in IMG_ARCH_LIST and arch_str not in TXT_ARCH_LIST:
+        if arch_str not in CUS_ARCH_LIST and arch_str not in TXT_ARCH_LIST:
             raise ValueError(
-                f'Unexpected architecture type in GGUF file, expected one of flux, sd1/3, sdxl, t5encoder but got {arch_str!r}'
+                f'Unexpected architecture type in GGUF file, expected one of flux, sd1-3/sdxl, ltxv, hyvid, t5encoder, etc. but got {arch_str!r}'
                 )
     else:
         compat = 'sd.cpp'
