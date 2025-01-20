@@ -1,4 +1,4 @@
-__version__ = '1.0.9'
+__version__ = '1.1.0'
 def __init__():
     import argparse
     parser = argparse.ArgumentParser()
@@ -17,6 +17,7 @@ def __init__():
     subparsers.add_parser('w', help='[w] page/container')
     subparsers.add_parser('y', help='[y] download comfy')
     subparsers.add_parser('n', help='[n] clone node')
+    subparsers.add_parser('u', help='[u] get cutter')
     subparsers.add_parser('r', help='[r] metadata reader')
     subparsers.add_parser('r2', help='[r2] metadata fast reader')
     subparsers.add_parser('q', help='[q] safetensors quantizor')
@@ -39,12 +40,14 @@ def __init__():
         from gguf_connector import r2
     elif args.subcommand == 'i':
         from gguf_connector import i
-    elif args.subcommand == 'w':
-        from gguf_connector import w
     elif args.subcommand == 'o':
         from gguf_connector import o
+    elif args.subcommand == 'u':
+        from gguf_connector import u
     elif args.subcommand == 'v':
         from gguf_connector import v
+    elif args.subcommand == 'w':
+        from gguf_connector import w
     elif args.subcommand == 'y':
         from gguf_connector import y
     elif args.subcommand == 't':
