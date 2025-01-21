@@ -1,18 +1,1 @@
-[
-    {
-    "version":"0.0.12",
-    "supported_model": {
-        "stable_diffusion": "STABLE_DIFFUSION",
-        "stable_cascade": "STABLE_CASCADE",
-        "stable_audio": "STABLE_AUDIO",
-        "sdxl": "STABLE_DIFFUSION",
-        "sd3": "SD3",
-        "flux": "FLUX",
-        "mochi": "MOCHI",
-        "ltxv": "LTXV",
-        "hunyuan_video": "HUNYUAN_VIDEO",
-        "pixart": "PIXART",
-        "cosmos": "COSMOS"
-        }
-    }
-]
+[{"version":"0.0.12","PIG_ARCH_LIST":["flux","sd1","sdxl","sd3","aura","mochi","ltxv","hyvid","cosmos"],"TXT_ARCH_LIST":["t5","t5encoder","llama"],"CLIP_ENUM_MAP":{"stable_diffusion":"STABLE_DIFFUSION","stable_cascade":"STABLE_CASCADE","stable_audio":"STABLE_AUDIO","sdxl":"STABLE_DIFFUSION","sd3":"SD3","flux":"FLUX","mochi":"MOCHI","ltxv":"LTXV","hunyuan_video":"HUNYUAN_VIDEO","pixart":"PIXART","cosmos":"COSMOS"},"CLIP_1":["stable_diffusion","stable_cascade","sd3","stable_audio","mochi","ltxv","pixart","cosmos"],"CLIP_2":["sdxl","sd3","flux","hunyuan_video"]}]
