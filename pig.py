@@ -3,7 +3,7 @@ import comfy.ops
 import comfy.utils
 import comfy.model_patcher
 import comfy.model_management
-import torch, os, logging, collections, folder_paths
+import torch, os, json, logging, collections, folder_paths
 from safetensors.torch import load_file, save_file
 from tqdm import tqdm as loading
 from .gguf_connector import reader as gr
@@ -11,10 +11,15 @@ from .gguf_connector.writer import GGUFWriter, GGMLQuantizationType
 from .gguf_connector.const import GGML_QUANT_VERSION, LlamaFileType
 from .gguf_connector.quant import quantize, QuantError
 from .gguf_connector.quant2 import dequantize_tensor, is_quantized, is_torch_compatible
+pig = os.path.join(os.path.dirname(__file__), 'version.json')
+def get_pig(file_path):
+    with open(file_path, 'r') as file:
+        data = json.load(file)
+    return data
+pig_data = get_pig(pig)
 class GGUFModelPatcher(comfy.model_patcher.ModelPatcher):
     patch_on_device = False
-    def patch_weight_to_device(self, key, device_to=None, inplace_update=False
-        ):
+    def patch_weight_to_device(self, key, device_to=None, inplace_update=False):
         if key not in self.patches:
             return
         weight = comfy.utils.get_attr(self.model, key)
@@ -170,8 +175,7 @@ class GGMLLayer(torch.nn.Module):
         if self.largest_layer:
             shape = getattr(self.weight, 'tensor_shape', self.weight.shape)
             dtype = self.dequant_dtype or torch.float16
-            temp = torch.empty(*shape, device=torch.device('meta'), dtype=dtype
-                )
+            temp = torch.empty(*shape, device=torch.device('meta'), dtype=dtype)
             destination[prefix + 'temp.weight'] = temp
         return
         destination[prefix + 'weight'] = self.get_weight(self.weight)
@@ -456,15 +460,11 @@ class LoaderGGUFAdvanced(LoaderGGUF):
             'float32', 'float16', 'bfloat16'], {'default': 'default'}),
             'patch_on_device': ('BOOLEAN', {'default': False})}}
     TITLE = 'GGUF Loader (Advanced)'
-CLIP_ENUM_MAP = {'stable_diffusion': 'STABLE_DIFFUSION', 'stable_cascade':
-    'STABLE_CASCADE', 'stable_audio': 'STABLE_AUDIO', 'sdxl':
-    'STABLE_DIFFUSION', 'sd3': 'SD3', 'flux': 'FLUX', 'mochi': 'MOCHI',
-    'ltxv': 'LTXV', 'hunyuan_video': 'HUNYUAN_VIDEO', 'pixart': 'PIXART', 'cosmos': 'COSMOS'}
 def get_clip_type(name):
-    enum_name = CLIP_ENUM_MAP.get(name, None)
+    enum_name = pig_data[0]['supported_model'].get(name, None)
     if enum_name is None:
         raise ValueError(f'Unknown CLIP model type {name}')
-    clip_type = getattr(comfy.sd.CLIPType, CLIP_ENUM_MAP[name], None)
+    clip_type = getattr(comfy.sd.CLIPType, pig_data[0]['supported_model'][name], None)
     if clip_type is None:
         raise ValueError(f'Unsupported CLIP model type {name} (Update ComfyUI)'
             )
@@ -511,7 +511,7 @@ class DualClipLoaderGGUF(ClipLoaderGGUF):
     def INPUT_TYPES(s):
         file_options = s.get_filename_list(),
         return {'required': {'clip_name1': file_options, 'clip_name2':
-            file_options, 'type': (('sdxl', 'sd3', 'flux', 'hunyuan_video'),)}}
+            file_options, 'type': (['sdxl', 'sd3', 'flux', 'hunyuan_video'],)}}
     TITLE = 'GGUF DualCLIPLoader'
     def load_clip(self, clip_name1, clip_name2, type):
         clip_path1 = folder_paths.get_full_path('clip', clip_name1)
