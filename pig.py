@@ -12,14 +12,15 @@ from .gguf_connector.const import GGML_QUANT_VERSION, LlamaFileType
 from .gguf_connector.quant import quantize, QuantError
 from .gguf_connector.quant2 import dequantize_tensor, is_quantized, is_torch_compatible
 pig = os.path.join(os.path.dirname(__file__), 'version.json')
-with open(pig, "r") as file:
+with open(pig, 'r') as file:
     data = json.load(file)
 arrays = {}
 for key, value in data[0].items():
     arrays[key] = value
 class GGUFModelPatcher(comfy.model_patcher.ModelPatcher):
     patch_on_device = False
-    def patch_weight_to_device(self, key, device_to=None, inplace_update=False):
+    def patch_weight_to_device(self, key, device_to=None, inplace_update=False
+        ):
         if key not in self.patches:
             return
         weight = comfy.utils.get_attr(self.model, key)
@@ -175,7 +176,8 @@ class GGMLLayer(torch.nn.Module):
         if self.largest_layer:
             shape = getattr(self.weight, 'tensor_shape', self.weight.shape)
             dtype = self.dequant_dtype or torch.float16
-            temp = torch.empty(*shape, device=torch.device('meta'), dtype=dtype)
+            temp = torch.empty(*shape, device=torch.device('meta'), dtype=dtype
+                )
             destination[prefix + 'temp.weight'] = temp
         return
         destination[prefix + 'weight'] = self.get_weight(self.weight)
@@ -286,8 +288,7 @@ def get_folder_names_and_paths(key, targets=[]):
     folder_paths.folder_names_and_paths[key] = orig or base, {'.gguf'}
     if base and base != orig:
         logging.warning(
-            f'Unknown file list already present on key {key}: {base}'
-            )
+            f'Unknown file list already present on key {key}: {base}')
 get_folder_names_and_paths('model_gguf', ['diffusion_models', 'unet'])
 get_folder_names_and_paths('clip_gguf', ['text_encoders', 'clip'])
 def get_orig_shape(reader, tensor_name):
@@ -303,8 +304,8 @@ def get_orig_shape(reader, tensor_name):
             )
     return torch.Size(tuple(int(field.parts[part_idx][0]) for part_idx in
         field.data))
-def load_gguf_sd(path, handle_prefix='model.diffusion_model.',
-    return_arch=False):
+def load_gguf_sd(path, handle_prefix='model.diffusion_model.', return_arch=
+    False):
     reader = gr.GGUFReader(path)
     has_prefix = False
     if handle_prefix is not None:
@@ -329,7 +330,8 @@ def load_gguf_sd(path, handle_prefix='model.diffusion_model.',
                 f'Bad type for GGUF general.architecture key: expected string, got {arch_field.types!r}'
                 )
         arch_str = str(arch_field.parts[arch_field.data[-1]], encoding='utf-8')
-        if arch_str not in arrays["PIG_ARCH_LIST"] and arch_str not in arrays["TXT_ARCH_LIST"]:
+        if arch_str not in arrays['PIG_ARCH_LIST'] and arch_str not in arrays[
+            'TXT_ARCH_LIST']:
             raise ValueError(
                 f'Unexpected architecture type in GGUF file, expected one of flux, sd1-3/sdxl, ltxv, hyvid, t5encoder, etc. but got {arch_str!r}'
                 )
@@ -460,10 +462,10 @@ class LoaderGGUFAdvanced(LoaderGGUF):
             'patch_on_device': ('BOOLEAN', {'default': False})}}
     TITLE = 'GGUF Loader (Advanced)'
 def get_clip_type(name):
-    enum_name = arrays["CLIP_ENUM_MAP"].get(name, None)
+    enum_name = arrays['CLIP_ENUM_MAP'].get(name, None)
     if enum_name is None:
         raise ValueError(f'Unknown CLIP model type {name}')
-    clip_type = getattr(comfy.sd.CLIPType, arrays["CLIP_ENUM_MAP"][name], None)
+    clip_type = getattr(comfy.sd.CLIPType, arrays['CLIP_ENUM_MAP'][name], None)
     if clip_type is None:
         raise ValueError(f'Unsupported CLIP model type {name} (Update ComfyUI)'
             )
@@ -472,7 +474,7 @@ class ClipLoaderGGUF:
     @classmethod
     def INPUT_TYPES(s):
         return {'required': {'clip_name': (s.get_filename_list(),), 'type':
-            (arrays["CLIP_1"],)}}
+            (arrays['CLIP_1'],)}}
     RETURN_TYPES = 'CLIP',
     FUNCTION = 'load_clip'
     CATEGORY = 'gguf'
@@ -509,7 +511,7 @@ class DualClipLoaderGGUF(ClipLoaderGGUF):
     def INPUT_TYPES(s):
         file_options = s.get_filename_list(),
         return {'required': {'clip_name1': file_options, 'clip_name2':
-            file_options, 'type': (arrays["CLIP_2"],)}}
+            file_options, 'type': (arrays['CLIP_2'],)}}
     TITLE = 'GGUF DualCLIPLoader'
     def load_clip(self, clip_name1, clip_name2, type):
         clip_path1 = folder_paths.get_full_path('clip', clip_name1)
@@ -698,11 +700,13 @@ class GGUFSave:
         writer.add_quantization_version(GGML_QUANT_VERSION)
         if next(iter(state_dict.values())).dtype == torch.bfloat16:
             output_path = (
-                f'{self.output_dir}/{os.path.splitext(select_safetensors)[0]}-bf16.gguf')
+                f'{self.output_dir}/{os.path.splitext(select_safetensors)[0]}-bf16.gguf'
+                )
             writer.add_file_type(LlamaFileType.MOSTLY_BF16)
         else:
             output_path = (
-                f'{self.output_dir}/{os.path.splitext(select_safetensors)[0]}-f16.gguf')
+                f'{self.output_dir}/{os.path.splitext(select_safetensors)[0]}-f16.gguf'
+                )
             writer.add_file_type(LlamaFileType.MOSTLY_F16)
         if os.path.isfile(output_path):
             input('Output exists enter to continue or ctrl+c to abort!')
@@ -742,7 +746,8 @@ class TENSORCut:
         input_file = folder_paths.get_full_path('select_safetensors',
             select_safetensors)
         output_file = (
-            f'{self.output_dir}/{os.path.splitext(select_safetensors)[0]}_fp8_e4m3fn.safetensors')
+            f'{self.output_dir}/{os.path.splitext(select_safetensors)[0]}_fp8_e4m3fn.safetensors'
+            )
         data = load_file(input_file)
         quantized_data = {}
         print('Starting quantization process...')
