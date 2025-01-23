@@ -1,4 +1,4 @@
-__version__ = '1.1.0'
+__version__ = '1.1.1'
 def __init__():
     import argparse
     parser = argparse.ArgumentParser()
