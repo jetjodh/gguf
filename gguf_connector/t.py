@@ -12,8 +12,8 @@ class ModelTemplate:
     shape_fix = False
     keys_detect = []
     keys_banned = []
-class ModelHYVID(ModelTemplate):
-    arch = 'hyvid'
+class ModelFlux(ModelTemplate):
+    arch = 'flux'
     keys_detect = [('transformer_blocks.0.attn.norm_added_k.weight',), (
         'double_blocks.0.img_attn.proj.weight',)]
     keys_banned = ['transformer_blocks.0.attn.norm_added_k.weight']
@@ -47,7 +47,7 @@ class ModelSD1(ModelTemplate):
         'input_blocks.3.0.op.weight', 'input_blocks.6.0.op.weight',
         'input_blocks.9.0.op.weight', 'output_blocks.2.1.conv.weight',
         'output_blocks.5.2.conv.weight', 'output_blocks.8.2.conv.weight')]
-arch_list = [ModelSD3, ModelAura, ModelLTXV, ModelHYVID, ModelSDXL, ModelSD1]
+arch_list = [ModelFlux, ModelSD3, ModelAura, ModelLTXV, ModelSDXL, ModelSD1]
 def is_model_arch(model, state_dict):
     matched = False
     invalid = False
