@@ -3,13 +3,14 @@ import comfy.ops
 import comfy.utils
 import comfy.model_patcher
 import comfy.model_management
-import torch, os, json, logging, collections, folder_paths
+import torch, numpy, os, json, logging, collections, folder_paths
 from safetensors.torch import load_file, save_file
+from typing import Dict, Tuple
 from tqdm import tqdm as loading
 from .gguf_connector import reader as gr
 from .gguf_connector.writer import GGUFWriter, GGMLQuantizationType
 from .gguf_connector.const import GGML_QUANT_VERSION, LlamaFileType
-from .gguf_connector.quant import quantize, QuantError
+from .gguf_connector.quant import quantize, dequantize, QuantError
 from .gguf_connector.quant2 import dequantize_tensor, is_quantized, is_torch_compatible
 pig = os.path.join(os.path.dirname(__file__), 'version.json')
 with open(pig, 'r') as file:
@@ -759,12 +760,80 @@ class TENSORCut:
         save_file(quantized_data, output_file)
         print(f'Quantized safetensors saved to {output_file}.')
         return {}
+def load_gguf_and_extract_metadata(gguf_path):
+    reader = gr.GGUFReader(gguf_path)
+    tensors_metadata = []
+    for tensor in reader.tensors:
+        tensor_metadata = {'name': tensor.name, 'shape': tuple(tensor.shape
+            .tolist()), 'n_elements': tensor.n_elements, 'n_bytes': tensor.
+            n_bytes, 'data_offset': tensor.data_offset, 'type': tensor.
+            tensor_type}
+        tensors_metadata.append(tensor_metadata)
+    return reader, tensors_metadata
+def convert_gguf_to_safetensors(gguf_path, output_path, use_bf16):
+    reader, tensors_metadata = load_gguf_and_extract_metadata(gguf_path)
+    print(f'Extracted {len(tensors_metadata)} tensors from GGUF file')
+    tensors_dict: dict[str, torch.Tensor] = {}
+    for i, tensor_info in enumerate(loading(tensors_metadata, desc=
+        'Converting tensors', unit='tensor')):
+        tensor_name = tensor_info['name']
+        tensor_data = reader.get_tensor(i)
+        weights = dequantize(tensor_data.data, tensor_data.tensor_type).copy()
+        try:
+            if use_bf16:
+                weights_tensor = torch.from_numpy(weights).to(dtype=torch.
+                    float32)
+                weights_tensor = weights_tensor.to(torch.bfloat16)
+            else:
+                weights_tensor = torch.from_numpy(weights).to(dtype=torch.
+                    float16)
+            weights_hf = weights_tensor
+        except Exception as e:
+            print(
+                f"Error during BF16 conversion for tensor '{tensor_name}': {e}"
+                )
+            weights_tensor = torch.from_numpy(weights.astype(numpy.float32)
+                ).to(torch.float16)
+            weights_hf = weights_tensor
+        tensors_dict[tensor_name] = weights_hf
+    metadata = {key: str(reader.get_field(key)) for key in reader.fields}
+    save_file(tensors_dict, output_path, metadata=metadata)
+    print('Conversion complete!')
+if 'select_gguf' not in folder_paths.folder_names_and_paths:
+    orig = folder_paths.folder_names_and_paths.get('diffusion_models',
+        folder_paths.folder_names_and_paths.get('unet', [[], set()]))
+    folder_paths.folder_names_and_paths['select_gguf'] = orig[0], {'.gguf'}
+class GGUFUndo:
+    def __init__(self):
+        self.output_dir = folder_paths.get_output_directory()
+    @classmethod
+    def INPUT_TYPES(s):
+        return {'required': {'select_gguf': (s.get_filename_list(),)}}
+    RETURN_TYPES = ()
+    FUNCTION = 'undo'
+    OUTPUT_NODE = True
+    CATEGORY = 'gguf'
+    TITLE = 'GGUF Convertor (Reverse)'
+    @classmethod
+    def get_filename_list(s):
+        files = []
+        files += folder_paths.get_filename_list('select_gguf')
+        return sorted(files)
+    def undo(self, select_gguf):
+        in_file = folder_paths.get_full_path('select_gguf', select_gguf)
+        out_file = (
+            f'{self.output_dir}/{os.path.splitext(select_gguf)[0]}_fp16.safetensors'
+            )
+        use_bf16 = False
+        convert_gguf_to_safetensors(in_file, out_file, use_bf16)
+        return {}
 NODE_CLASS_MAPPINGS = {
     "LoaderGGUF": LoaderGGUF,
     "ClipLoaderGGUF": ClipLoaderGGUF,
     "DualClipLoaderGGUF": DualClipLoaderGGUF,
     "TripleClipLoaderGGUF": TripleClipLoaderGGUF,
     "LoaderGGUFAdvanced": LoaderGGUFAdvanced,
-    "TENSORCut": TENSORCut,
+    "GGUFUndo": GGUFUndo,
     "GGUFSave": GGUFSave,
+    "TENSORCut": TENSORCut,
 }
