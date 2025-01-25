@@ -4,7 +4,7 @@ from safetensors.torch import save_file
 from typing import Dict, Tuple
 from .quant import dequantize
 from .reader import GGUFReader
-from .const import Keys
+from tqdm import tqdm
 def load_gguf_and_extract_metadata(gguf_path):
     reader = GGUFReader(gguf_path)
     tensors_metadata = []
@@ -19,18 +19,17 @@ def convert_gguf_to_safetensors(gguf_path, output_path, use_bf16):
     reader, tensors_metadata = load_gguf_and_extract_metadata(gguf_path)
     print(f'Extracted {len(tensors_metadata)} tensors from GGUF file')
     tensors_dict: dict[str, torch.Tensor] = {}
-    for i, tensor_info in enumerate(tensors_metadata):
+    for i, tensor_info in enumerate(tqdm(tensors_metadata, desc=
+        'Converting tensors', unit='tensor')):
         tensor_name = tensor_info['name']
         tensor_data = reader.get_tensor(i)
         weights = dequantize(tensor_data.data, tensor_data.tensor_type).copy()
         try:
             if use_bf16:
-                print(f'Attempting BF16 conversion')
                 weights_tensor = torch.from_numpy(weights).to(dtype=torch.
                     float32)
                 weights_tensor = weights_tensor.to(torch.bfloat16)
             else:
-                print('Using FP16 conversion.')
                 weights_tensor = torch.from_numpy(weights).to(dtype=torch.
                     float16)
             weights_hf = weights_tensor
@@ -41,16 +40,8 @@ def convert_gguf_to_safetensors(gguf_path, output_path, use_bf16):
             weights_tensor = torch.from_numpy(weights.astype(np.float32)).to(
                 torch.float16)
             weights_hf = weights_tensor
-        print(
-            f'dequantize tensor: {tensor_name} | Shape: {weights_hf.shape} | Type: {weights_tensor.dtype}'
-            )
-        del weights_tensor
-        del weights
         tensors_dict[tensor_name] = weights_hf
-        del weights_hf
-    metadata = {'modelspec.architecture':
-        f'{reader.get_field(Keys.General.FILE_TYPE)}', 'description':
-        'Model converted from gguf.'}
+    metadata = {key: str(reader.get_field(key)) for key in reader.fields}
     save_file(tensors_dict, output_path, metadata=metadata)
     print('Conversion complete!')
 import os
@@ -76,5 +67,5 @@ if gguf_files:
     except (ValueError, IndexError):
         print('Invalid choice. Please enter a valid number.')
 else:
-    print('No safetensors files are available in the current directory.')
+    print('No GGUF files are available in the current directory.')
     input('--- Press ENTER To Exit ---')
