@@ -83,7 +83,7 @@ for the demo workflow (picture) above, you could get the test model gguf [here](
 - when it was done; the converted safetensors file will be saved to the output folder (./ComfyUI/output)
 
 ![screenshot](https://raw.githubusercontent.com/calcuis/comfy/master/reverser.png)
-**little little tips**: the reverse converted safetensors file doesn't contain any clip and vae (cannot be used as checkpoint); should drag it to diffusion_models folder (./ComfyUI/models/diffusion_models) and select Add Node > advanced > loaders > Load Diffusion Model; then use it like gguf model (very similar to gguf loader) with separate clip(s) and vae
+**little little tips**: the reverse converted safetensors file doesn't contain any clip and vae (cannot be used as checkpoint); should drag it to diffusion_models folder (./ComfyUI/models/diffusion_models) and select Add Node > advanced > loaders > Load Diffusion Model; then use it like gguf model (very similar to gguf loader) along with separate clip(s) and vae
 
 #### reference
 [comfyui](https://github.com/comfyanonymous/ComfyUI)
