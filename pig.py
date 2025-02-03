@@ -334,7 +334,7 @@ def load_gguf_sd(path, handle_prefix='model.diffusion_model.', return_arch=
         if arch_str not in arrays['PIG_ARCH_LIST'] and arch_str not in arrays[
             'TXT_ARCH_LIST']:
             raise ValueError(
-                f'Unexpected architecture type in GGUF file, expected one of flux, sd1-3/sdxl, ltxv, hyvid, t5encoder, etc. but got {arch_str!r}'
+                f'Unknown architecture: {arch_str!r}'
                 )
     else:
         compat = 'sd.cpp'
