@@ -338,8 +338,7 @@ def load_gguf_sd(path, handle_prefix='model.diffusion_model.', return_arch=
                 )
     else:
         compat = 'sd.cpp'
-    state_dict = {}
-    qtype_dict = {}
+    state_dict, qtype_dict = {}, {}
     for sd_key, tensor in tensors:
         tensor_name = tensor.name
         tensor_type_str = str(tensor.tensor_type)
