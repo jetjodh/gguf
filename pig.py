@@ -383,6 +383,12 @@ LLAMA_SD_MAP = {'blk.': 'model.layers.', 'attn_norm': 'input_layernorm',
     'ffn_norm': 'post_attention_layernorm', 'token_embd':
     'model.embed_tokens', 'output_norm': 'model.norm', 'output.weight':
     'lm_head.weight'}
+PIG_SD_MAP = {}
+def pig_work(raw_sd, key_map):
+    sd = {}
+    for k, v in raw_sd.items():
+        sd[k] = v
+    return sd
 def sd_map_replace(raw_sd, key_map):
     sd = {}
     for k, v in raw_sd.items():
@@ -413,6 +419,8 @@ def load_gguf_clip(path):
                 )
         sd = sd_map_replace(sd, LLAMA_SD_MAP)
         sd = llama_permute(sd, 32, 8)
+    elif arch in {'pig'}:
+        sd = pig_work(sd, PIG_SD_MAP)
     else:
         pass
     return sd
