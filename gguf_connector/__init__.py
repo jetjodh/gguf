@@ -1,4 +1,4 @@
-__version__ = '1.1.5'
+__version__ = '1.1.6'
 def __init__():
     import argparse
     parser = argparse.ArgumentParser()
@@ -20,6 +20,7 @@ def __init__():
     subparsers.add_parser('u', help='[u] get cutter')
     subparsers.add_parser('r', help='[r] metadata reader')
     subparsers.add_parser('r2', help='[r2] metadata fast reader')
+    subparsers.add_parser('r3', help='[r3] tensor reader')
     subparsers.add_parser('q', help='[q] tensor quantizor')
     subparsers.add_parser('t', help='[t] tensor convertor (sigma)')
     subparsers.add_parser('t1', help='[t1] tensor convertor (alpha)')
@@ -40,6 +41,8 @@ def __init__():
         from gguf_connector import r
     elif args.subcommand == 'r2':
         from gguf_connector import r2
+    elif args.subcommand == 'r3':
+        from gguf_connector import r3
     elif args.subcommand == 'i':
         from gguf_connector import i
     elif args.subcommand == 'o':
