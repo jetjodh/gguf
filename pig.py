@@ -407,6 +407,18 @@ def llama_permute(raw_sd, n_head, n_head_kv):
             v.data = permute(v.data, n_head_kv)
         sd[k] = v
     return sd
+def gemma_permute(raw_sd, n_head, n_head_kv):
+    sd = {}
+    permute = lambda x, h: x.reshape(h, x.shape[0] // h // 2, 2, *x.shape[1:]
+        ).swapaxes(1, 2).reshape(x.shape)
+    for k, v in raw_sd.items():
+        if k.endswith(('v_proj.weight', 'v_proj.bias')):
+            v.data = permute(v.data, n_head)
+        if k.endswith(('k_proj.weight', 'k_proj.bias')):
+            v.data = permute(v.data, n_head_kv)
+        sd[k] = v
+    sd["model.layers.0.post_feedforward_layernorm.weight"] = torch.randn(2304)
+    return sd
 def load_gguf_clip(path):
     sd, arch = load_gguf_sd(path, return_arch=True)
     if arch in {'t5', 't5encoder'}:
@@ -419,6 +431,9 @@ def load_gguf_clip(path):
                 )
         sd = sd_map_replace(sd, LLAMA_SD_MAP)
         sd = llama_permute(sd, 32, 8)
+    elif arch in {'gemma2'}:
+        sd = sd_map_replace(sd, LLAMA_SD_MAP)
+        sd = gemma_permute(sd, 32, 8)
     elif arch in {'pig'}:
         sd = pig_work(sd, PIG_SD_MAP)
     else:
