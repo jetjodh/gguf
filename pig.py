@@ -367,6 +367,13 @@ def load_gguf_sd(path, handle_prefix='model.diffusion_model.', return_arch=
     if return_arch:
         return state_dict, arch_str
     return state_dict
+HEAD_SD_MAP = {'blk.': 'model.layers.', 'attn_norm': 'input_layernorm',
+    'attn_q': 'self_attn.q_proj', 'attn_k': 'self_attn.k_proj', 'attn_v':
+    'self_attn.v_proj', 'attn_output': 'self_attn.o_proj', 'ffn_up':
+    'mlp.up_proj', 'ffn_down': 'mlp.down_proj', 'ffn_gate': 'mlp.gate_proj',
+    'ffn_norm': 'post_attention_layernorm', 'token_embd':
+    'model.embed_tokens', 'output_norm': 'model.norm', 'output.weight':
+    'lm_head.weight'}
 T5_SD_MAP = {'enc.': 'encoder.', '.blk.': '.block.', 'token_embd': 'shared',
     'output_norm': 'final_layer_norm', 'attn_q': 'layer.0.SelfAttention.q',
     'attn_k': 'layer.0.SelfAttention.k', 'attn_v':
@@ -374,26 +381,18 @@ T5_SD_MAP = {'enc.': 'encoder.', '.blk.': '.block.', 'token_embd': 'shared',
     'attn_norm': 'layer.0.layer_norm', 'attn_rel_b':
     'layer.0.SelfAttention.relative_attention_bias', 'ffn_up':
     'layer.1.DenseReluDense.wi_1', 'ffn_down': 'layer.1.DenseReluDense.wo',
-    'ffn_gate': 'layer.1.DenseReluDense.wi_0', 'ffn_norm': 'layer.1.layer_norm'
-    }
-LLAMA_SD_MAP = {'blk.': 'model.layers.', 'attn_norm': 'input_layernorm',
-    'attn_q': 'self_attn.q_proj', 'attn_k': 'self_attn.k_proj', 'attn_v':
-    'self_attn.v_proj', 'attn_output': 'self_attn.o_proj', 'ffn_up':
-    'mlp.up_proj', 'ffn_down': 'mlp.down_proj', 'ffn_gate': 'mlp.gate_proj',
-    'ffn_norm': 'post_attention_layernorm', 'token_embd':
-    'model.embed_tokens', 'output_norm': 'model.norm', 'output.weight':
-    'lm_head.weight'}
-PIG_SD_MAP = {}
-def pig_work(raw_sd, key_map):
-    sd = {}
-    for k, v in raw_sd.items():
-        sd[k] = v
-    return sd
-def sd_map_replace(raw_sd, key_map):
+    'ffn_gate': 'layer.1.DenseReluDense.wi_0', 'ffn_norm': 'layer.1.layer_norm'}
+def tensor_swap(raw_sd, key_map):
     sd = {}
     for k, v in raw_sd.items():
         for s, d in key_map.items():
             k = k.replace(s, d)
+        sd[k] = v
+    return sd
+PIG_SD_MAP = {}
+def pig_work(raw_sd, key_map):
+    sd = {}
+    for k, v in raw_sd.items():
         sd[k] = v
     return sd
 def llama_permute(raw_sd, n_head, n_head_kv):
@@ -422,17 +421,12 @@ def gemma_permute(raw_sd, n_head, n_head_kv):
 def load_gguf_clip(path):
     sd, arch = load_gguf_sd(path, return_arch=True)
     if arch in {'t5', 't5encoder'}:
-        sd = sd_map_replace(sd, T5_SD_MAP)
+        sd = tensor_swap(sd, T5_SD_MAP)
     elif arch in {'llama'}:
-        temb_key = 'token_embd.weight'
-        if temb_key in sd and sd[temb_key].shape != (128320, 4096):
-            print(
-                'Warning! token_embd shape may be incorrect for llama 3 model!'
-                )
-        sd = sd_map_replace(sd, LLAMA_SD_MAP)
+        sd = tensor_swap(sd, HEAD_SD_MAP)
         sd = llama_permute(sd, 32, 8)
     elif arch in {'gemma2'}:
-        sd = sd_map_replace(sd, LLAMA_SD_MAP)
+        sd = tensor_swap(sd, HEAD_SD_MAP)
         sd = gemma_permute(sd, 32, 8)
     elif arch in {'pig'}:
         sd = pig_work(sd, PIG_SD_MAP)
