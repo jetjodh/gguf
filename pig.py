@@ -379,8 +379,7 @@ T5_SD_MAP = {'enc.': 'encoder.', '.blk.': '.block.', 'token_embd': 'shared',
     'attn_norm': 'layer.0.layer_norm', 'attn_rel_b':
     'layer.0.SelfAttention.relative_attention_bias', 'ffn_up':
     'layer.1.DenseReluDense.wi_1', 'ffn_down': 'layer.1.DenseReluDense.wo',
-    'ffn_gate': 'layer.1.DenseReluDense.wi_0', 'ffn_norm': 'layer.1.layer_norm'
-    }
+    'ffn_gate': 'layer.1.DenseReluDense.wi_0', 'ffn_norm': 'layer.1.layer_norm'}
 def tensor_swap(raw_sd, key_map):
     sd = {}
     for k, v in raw_sd.items():
@@ -471,8 +470,7 @@ def get_clip_type(name):
         raise ValueError(f'Unknown CLIP model type {name}')
     clip_type = getattr(comfy.sd.CLIPType, arrays['CLIP_ENUM_MAP'][name], None)
     if clip_type is None:
-        raise ValueError(f'Unsupported CLIP model type {name} (Update ComfyUI)'
-            )
+        raise ValueError(f'Unsupported CLIP model type {name} (please upgrade your node)')
     return clip_type
 class ClipLoaderGGUF:
     @classmethod
@@ -575,7 +573,7 @@ def is_model_arch(model, state_dict):
             matched = True
             invalid = any(key in state_dict for key in model.keys_banned)
             break
-    assert not invalid, 'Model architecture not allowed for conversion!'
+    assert not invalid, 'Model architecture not supported for alpha (please opt to use zero)'
     return matched
 def detect_arch(state_dict):
     model_arch = None
@@ -583,7 +581,7 @@ def detect_arch(state_dict):
         if is_model_arch(arch, state_dict):
             model_arch = arch
             break
-    assert model_arch is not None, 'Unknown model architecture!'
+    assert model_arch is not None, 'Unknown model architecture detected!'
     return model_arch
 def load_state_dict(path):
     state_dict = load_file(path)
