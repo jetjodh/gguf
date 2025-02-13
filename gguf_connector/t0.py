@@ -7,105 +7,15 @@ from tqdm import tqdm
 QUANTIZATION_THRESHOLD = 1024
 REARRANGE_THRESHOLD = 512
 MAX_TENSOR_NAME_LENGTH = 127
-class ModelTemplate:
-    arch = 'invalid'
-    shape_fix = False
-    keys_detect = []
-    keys_banned = []
-class ModelSDXL(ModelTemplate):
-    arch = 'sdxl'
-    shape_fix = True
-    keys_detect = [('down_blocks.0.downsamplers.0.conv.weight',
-        'add_embedding.linear_1.weight'), ('input_blocks.3.0.op.weight',
-        'input_blocks.6.0.op.weight', 'output_blocks.2.2.conv.weight',
-        'output_blocks.5.2.conv.weight'), ('label_emb.0.0.weight',)]
-class ModelSD1(ModelTemplate):
-    arch = 'sd1'
-    shape_fix = True
-    keys_detect = [('down_blocks.0.downsamplers.0.conv.weight',), (
-        'input_blocks.3.0.op.weight', 'input_blocks.6.0.op.weight',
-        'input_blocks.9.0.op.weight', 'output_blocks.2.1.conv.weight',
-        'output_blocks.5.2.conv.weight', 'output_blocks.8.2.conv.weight')]
-class ModelSD3(ModelTemplate):
-    arch = 'sd3'
-    keys_detect = [('transformer_blocks.0.attn.add_q_proj.weight',), (
-        'joint_blocks.0.x_block.attn.qkv.weight',)]
-    keys_banned = ['transformer_blocks.0.attn.add_q_proj.weight']
-class ModelFlux(ModelTemplate):
-    arch = 'flux'
-    keys_detect = [('transformer_blocks.0.attn.norm_added_k.weight',), (
-        'double_blocks.0.img_attn.proj.weight',)]
-    keys_banned = ['transformer_blocks.0.attn.norm_added_k.weight']
-class ModelAura(ModelTemplate):
-    arch = 'aura'
-    keys_detect = [('double_layers.3.modX.1.weight',), (
-        'joint_transformer_blocks.3.ff_context.out_projection.weight',)]
-    keys_banned = [
-        'joint_transformer_blocks.3.ff_context.out_projection.weight']
-class ModelHYVID(ModelTemplate):
-    arch = 'hyvid'
-    keys_detect = [('txt_in.individual_token_refiner.blocks.0.norm1.weight',)]
-class ModelCosmos(ModelTemplate):
-    arch = 'cosmos'
-    keys_detect = [('blocks.block0.blocks.0.block.attn.to_q.0.weight',)]
-class ModelPixArt(ModelTemplate):
-    arch = 'pixart'
-    keys_detect = [('transformer_blocks.27.scale_shift_table',)]
-class ModelMochi(ModelTemplate):
-    arch = 'mochi'
-    keys_detect = [('t5_yproj.weight',)]
-class ModelLumina(ModelTemplate):
-    arch = 'lumina'
-    keys_detect = [('cap_embedder.0.weight',)]
-class ModelLTXV(ModelTemplate):
-    arch = 'ltxv'
-    keys_detect = [('adaln_single.emb.timestep_embedder.linear_2.weight',
-        'transformer_blocks.27.scale_shift_table',
-        'caption_projection.linear_2.weight')]
-arch_list = [ModelSDXL, ModelSD1, ModelSD3, ModelAura, ModelFlux,
-    ModelHYVID, ModelCosmos, ModelPixArt, ModelMochi, ModelLumina, ModelLTXV]
-def is_model_arch(model, state_dict):
-    matched = False
-    invalid = False
-    for match_list in model.keys_detect:
-        if all(key in state_dict for key in match_list):
-            matched = True
-            invalid = any(key in state_dict for key in model.keys_banned)
-            break
-    assert not invalid, 'Model architecture not allowed for conversion! (i.e. reference VS diffusers format)'
-    return matched
-def detect_arch(state_dict):
-    model_arch = None
-    for arch in arch_list:
-        if is_model_arch(arch, state_dict):
-            model_arch = arch
-            break
-    assert model_arch is not None, 'Unknown model architecture!'
-    return model_arch
 def load_state_dict(path):
-    if any(path.endswith(x) for x in ['.ckpt', '.pt', '.bin', '.pth']):
-        state_dict = torch.load(path, map_location='cpu', weights_only=True)
-        state_dict = state_dict.get('model', state_dict)
-    else:
-        state_dict = load_file(path)
-    prefix = None
-    for pfx in ['model.diffusion_model.', 'model.']:
-        if any([x.startswith(pfx) for x in state_dict.keys()]):
-            prefix = pfx
-            break
+    state_dict = load_file(path)
     sd = {}
     for k, v in state_dict.items():
-        if prefix and prefix not in k:
-            continue
-        if prefix:
-            k = k.replace(prefix, '')
         sd[k] = v
     return sd
-def load_model(path):
+def load_model(path, model_arch):
     state_dict = load_state_dict(path)
-    model_arch = detect_arch(state_dict)
-    print(f'* Architecture detected from input: {model_arch.arch}')
-    writer = GGUFWriter(path=None, arch=model_arch.arch)
+    writer = GGUFWriter(path=None, arch=model_arch)
     return writer, state_dict, model_arch
 def handle_tensors(args, writer, state_dict, model_arch):
     name_lengths = tuple(sorted(((key, len(key)) for key in state_dict.keys
@@ -144,10 +54,6 @@ def handle_tensors(args, writer, state_dict, model_arch):
                 data_qtype = GGMLQuantizationType.F32
             elif '.weight' in key and any(x in key for x in blacklist):
                 data_qtype = GGMLQuantizationType.F32
-        if (model_arch.shape_fix and n_dims > 1 and n_params >=
-            REARRANGE_THRESHOLD and (n_params / 256).is_integer() and not (
-            data.shape[-1] / 256).is_integer()):
-            data = data.reshape(n_params // 256, 256)
         try:
             data = quantize(data, data_qtype)
         except (AttributeError, QuantError) as e:
@@ -173,7 +79,12 @@ if safetensors_files:
         selected_file = safetensors_files[choice_index]
         print(f'Model file: {selected_file} is selected!')
         path = selected_file
-        writer, state_dict, model_arch = load_model(path)
+        ask = input('Assign a name for the model (Y/n)? ')
+        if ask.lower() == 'y':
+            given = input('Enter a model name: ')
+        else:
+            given = None
+        writer, state_dict, model_arch = load_model(path, given)
         writer.add_quantization_version(GGML_QUANT_VERSION)
         if next(iter(state_dict.values())).dtype == torch.bfloat16:
             out_path = f'{os.path.splitext(path)[0]}-bf16.gguf'
