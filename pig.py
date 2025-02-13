@@ -333,9 +333,7 @@ def load_gguf_sd(path, handle_prefix='model.diffusion_model.', return_arch=
         arch_str = str(arch_field.parts[arch_field.data[-1]], encoding='utf-8')
         if arch_str not in arrays['PIG_ARCH_LIST'] and arch_str not in arrays[
             'TXT_ARCH_LIST']:
-            raise ValueError(
-                f'Unknown architecture: {arch_str!r}'
-                )
+            raise ValueError(f'Unknown architecture: {arch_str!r}')
     else:
         compat = 'sd.cpp'
     state_dict, qtype_dict = {}, {}
@@ -381,7 +379,8 @@ T5_SD_MAP = {'enc.': 'encoder.', '.blk.': '.block.', 'token_embd': 'shared',
     'attn_norm': 'layer.0.layer_norm', 'attn_rel_b':
     'layer.0.SelfAttention.relative_attention_bias', 'ffn_up':
     'layer.1.DenseReluDense.wi_1', 'ffn_down': 'layer.1.DenseReluDense.wo',
-    'ffn_gate': 'layer.1.DenseReluDense.wi_0', 'ffn_norm': 'layer.1.layer_norm'}
+    'ffn_gate': 'layer.1.DenseReluDense.wi_0', 'ffn_norm': 'layer.1.layer_norm'
+    }
 def tensor_swap(raw_sd, key_map):
     sd = {}
     for k, v in raw_sd.items():
@@ -413,7 +412,8 @@ def load_gguf_clip(path):
         sd = tensor_swap(sd, HEAD_SD_MAP)
         sd = llama_permute(sd, 32, 8)
     elif arch in {'gemma2'}:
-        sd["model.layers.0.post_feedforward_layernorm.weight"] = torch.randn(2304)
+        sd['model.layers.0.post_feedforward_layernorm.weight'] = torch.randn(
+            2304)
         sd = tensor_swap(sd, HEAD_SD_MAP)
     elif arch in {'pig'}:
         sd = pig_work(sd)
@@ -542,11 +542,10 @@ REARRANGE_THRESHOLD = 512
 MAX_TENSOR_NAME_LENGTH = 127
 class ModelTemplate:
     arch = 'invalid'
-    shape_fix = False
     keys_detect = []
     keys_banned = []
-class ModelHYVID(ModelTemplate):
-    arch = 'hyvid'
+class ModelFlux(ModelTemplate):
+    arch = 'flux'
     keys_detect = [('transformer_blocks.0.attn.norm_added_k.weight',), (
         'double_blocks.0.img_attn.proj.weight',)]
     keys_banned = ['transformer_blocks.0.attn.norm_added_k.weight']
@@ -555,32 +554,19 @@ class ModelSD3(ModelTemplate):
     keys_detect = [('transformer_blocks.0.attn.add_q_proj.weight',), (
         'joint_blocks.0.x_block.attn.qkv.weight',)]
     keys_banned = ['transformer_blocks.0.attn.add_q_proj.weight']
-class ModelAura(ModelTemplate):
-    arch = 'aura'
-    keys_detect = [('double_layers.3.modX.1.weight',), (
-        'joint_transformer_blocks.3.ff_context.out_projection.weight',)]
-    keys_banned = [
-        'joint_transformer_blocks.3.ff_context.out_projection.weight']
-class ModelLTXV(ModelTemplate):
-    arch = 'ltxv'
-    keys_detect = [('adaln_single.emb.timestep_embedder.linear_2.weight',
-        'transformer_blocks.27.scale_shift_table',
-        'caption_projection.linear_2.weight')]
 class ModelSDXL(ModelTemplate):
     arch = 'sdxl'
-    shape_fix = True
     keys_detect = [('down_blocks.0.downsamplers.0.conv.weight',
         'add_embedding.linear_1.weight'), ('input_blocks.3.0.op.weight',
         'input_blocks.6.0.op.weight', 'output_blocks.2.2.conv.weight',
         'output_blocks.5.2.conv.weight'), ('label_emb.0.0.weight',)]
 class ModelSD1(ModelTemplate):
     arch = 'sd1'
-    shape_fix = True
     keys_detect = [('down_blocks.0.downsamplers.0.conv.weight',), (
         'input_blocks.3.0.op.weight', 'input_blocks.6.0.op.weight',
         'input_blocks.9.0.op.weight', 'output_blocks.2.1.conv.weight',
         'output_blocks.5.2.conv.weight', 'output_blocks.8.2.conv.weight')]
-arch_list = [ModelSD3, ModelAura, ModelLTXV, ModelHYVID, ModelSDXL, ModelSD1]
+arch_list = [ModelFlux, ModelSD3, ModelSDXL, ModelSD1]
 def is_model_arch(model, state_dict):
     matched = False
     invalid = False
@@ -589,7 +575,7 @@ def is_model_arch(model, state_dict):
             matched = True
             invalid = any(key in state_dict for key in model.keys_banned)
             break
-    assert not invalid, 'Model architecture not allowed for conversion! (i.e. reference VS diffusers format)'
+    assert not invalid, 'Model architecture not allowed for conversion!'
     return matched
 def detect_arch(state_dict):
     model_arch = None
@@ -619,6 +605,17 @@ def load_model(path):
     model_arch = detect_arch(state_dict)
     print(f'* Architecture detected from input: {model_arch.arch}')
     writer = GGUFWriter(path=None, arch=model_arch.arch)
+    return writer, state_dict, model_arch
+def load_pig_state(path):
+    pig_state = load_file(path)
+    sd = {}
+    for k, v in pig_state.items():
+        sd[k] = v
+    return sd
+def load_pig(path):
+    state_dict = load_pig_state(path)
+    model_arch = 'pig'
+    writer = GGUFWriter(path=None, arch=model_arch)
     return writer, state_dict, model_arch
 def handle_tensors(args, writer, state_dict, model_arch):
     name_lengths = tuple(sorted(((key, len(key)) for key in state_dict.keys
@@ -657,13 +654,6 @@ def handle_tensors(args, writer, state_dict, model_arch):
                 data_qtype = GGMLQuantizationType.F32
             elif '.weight' in key and any(x in key for x in blacklist):
                 data_qtype = GGMLQuantizationType.F32
-        if (model_arch.shape_fix and n_dims > 1 and n_params >=
-            REARRANGE_THRESHOLD and (n_params / 256).is_integer() and not (
-            data.shape[-1] / 256).is_integer()):
-            orig_shape = data.shape
-            data = data.reshape(n_params // 256, 256)
-            writer.add_array(f'comfy.gguf.orig_shape.{key}', tuple(int(dim) for
-                dim in orig_shape))
         try:
             data = quantize(data, data_qtype)
         except (AttributeError, QuantError) as e:
@@ -701,6 +691,45 @@ class GGUFSave:
         path = folder_paths.get_full_path('select_safetensors',
             select_safetensors)
         writer, state_dict, model_arch = load_model(path)
+        writer.add_quantization_version(GGML_QUANT_VERSION)
+        if next(iter(state_dict.values())).dtype == torch.bfloat16:
+            output_path = (
+                f'{self.output_dir}/{os.path.splitext(select_safetensors)[0]}-bf16.gguf'
+                )
+            writer.add_file_type(LlamaFileType.MOSTLY_BF16)
+        else:
+            output_path = (
+                f'{self.output_dir}/{os.path.splitext(select_safetensors)[0]}-f16.gguf'
+                )
+            writer.add_file_type(LlamaFileType.MOSTLY_F16)
+        if os.path.isfile(output_path):
+            input('Output exists enter to continue or ctrl+c to abort!')
+        handle_tensors(output_path, writer, state_dict, model_arch)
+        writer.write_header_to_file(path=output_path)
+        writer.write_kv_data_to_file()
+        writer.write_tensors_to_file(progress=True)
+        writer.close()
+        return {}
+class GGUFRun:
+    def __init__(self):
+        self.output_dir = folder_paths.get_output_directory()
+    @classmethod
+    def INPUT_TYPES(s):
+        return {'required': {'select_safetensors': (s.get_filename_list(),)}}
+    RETURN_TYPES = ()
+    FUNCTION = 'run'
+    OUTPUT_NODE = True
+    CATEGORY = 'gguf'
+    TITLE = 'GGUF Convertor (Zero)'
+    @classmethod
+    def get_filename_list(s):
+        files = []
+        files += folder_paths.get_filename_list('select_safetensors')
+        return sorted(files)
+    def run(self, select_safetensors):
+        path = folder_paths.get_full_path('select_safetensors',
+            select_safetensors)
+        writer, state_dict, model_arch = load_pig(path)
         writer.add_quantization_version(GGML_QUANT_VERSION)
         if next(iter(state_dict.values())).dtype == torch.bfloat16:
             output_path = (
@@ -838,5 +867,6 @@ NODE_CLASS_MAPPINGS = {
     "LoaderGGUFAdvanced": LoaderGGUFAdvanced,
     "GGUFUndo": GGUFUndo,
     "GGUFSave": GGUFSave,
+    "GGUFRun": GGUFRun,
     "TENSORCut": TENSORCut,
 }
