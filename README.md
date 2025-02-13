@@ -89,7 +89,7 @@ for the demo workflow (picture) above, you could get the test model gguf [here](
 #### new flagship feature: convert safetensors to gguf without any restriction; no unsupported models; never
 - drag safetensors file(s) to diffusion_models folder (./ComfyUI/models/diffusion_models)
 - choose the second last option from the gguf menu: `GGUF Convertor (Zero)`
-- select your safetensors model inside the box; don't need to connect anything; it works independently also
+- select your safetensors model inside the box; don't need to connect anything; it works independently!
 - click `Queue` (run); then you can simply check the processing progress from console
 - when it was done; the converted gguf file will be saved to the output folder (./ComfyUI/output)
 - 🐷**pig architature**: not merely model conversion; it works for converting encoder as well; true! the amazing thing is - any form of safetensors can be converted!
