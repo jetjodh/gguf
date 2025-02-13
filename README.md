@@ -86,7 +86,7 @@ for the demo workflow (picture) above, you could get the test model gguf [here](
 **little little tips**: the reverse converted safetensors file doesn't contain any clip and vae (cannot be used as checkpoint); should drag it to diffusion_models folder (./ComfyUI/models/diffusion_models) and select Add Node > advanced > loaders > Load Diffusion Model; then use it like gguf model (very similar to gguf loader) along with separate clip(s) and vae
 
 ### convertor ZERO
-#### new flagship feature: convert safetensors to gguf without any restriction; no unsupported models; never
+#### new flagship feature: convert safetensors to gguf without any restriction; no unsupported models anymore; never
 - drag safetensors file(s) to diffusion_models folder (./ComfyUI/models/diffusion_models)
 - choose the second last option from the gguf menu: `GGUF Convertor (Zero)`
 - select your safetensors model inside the box; don't need to connect anything; it works independently!
