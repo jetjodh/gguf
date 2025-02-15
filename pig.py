@@ -365,21 +365,6 @@ def load_gguf_sd(path, handle_prefix='model.diffusion_model.', return_arch=
     if return_arch:
         return state_dict, arch_str
     return state_dict
-HEAD_SD_MAP = {'blk.': 'model.layers.', 'attn_norm': 'input_layernorm',
-    'attn_q': 'self_attn.q_proj', 'attn_k': 'self_attn.k_proj', 'attn_v':
-    'self_attn.v_proj', 'attn_output': 'self_attn.o_proj', 'ffn_up':
-    'mlp.up_proj', 'ffn_down': 'mlp.down_proj', 'ffn_gate': 'mlp.gate_proj',
-    'ffn_norm': 'post_attention_layernorm', 'token_embd':
-    'model.embed_tokens', 'output_norm': 'model.norm', 'output.weight':
-    'lm_head.weight'}
-T5_SD_MAP = {'enc.': 'encoder.', '.blk.': '.block.', 'token_embd': 'shared',
-    'output_norm': 'final_layer_norm', 'attn_q': 'layer.0.SelfAttention.q',
-    'attn_k': 'layer.0.SelfAttention.k', 'attn_v':
-    'layer.0.SelfAttention.v', 'attn_o': 'layer.0.SelfAttention.o',
-    'attn_norm': 'layer.0.layer_norm', 'attn_rel_b':
-    'layer.0.SelfAttention.relative_attention_bias', 'ffn_up':
-    'layer.1.DenseReluDense.wi_1', 'ffn_down': 'layer.1.DenseReluDense.wo',
-    'ffn_gate': 'layer.1.DenseReluDense.wi_0', 'ffn_norm': 'layer.1.layer_norm'}
 def tensor_swap(raw_sd, key_map):
     sd = {}
     for k, v in raw_sd.items():
@@ -406,14 +391,14 @@ def llama_permute(raw_sd, n_head, n_head_kv):
 def load_gguf_clip(path):
     sd, arch = load_gguf_sd(path, return_arch=True)
     if arch in {'t5', 't5encoder'}:
-        sd = tensor_swap(sd, T5_SD_MAP)
+        sd = tensor_swap(sd, arrays["T5"])
     elif arch in {'llama'}:
-        sd = tensor_swap(sd, HEAD_SD_MAP)
+        sd = tensor_swap(sd, arrays["HEAD"])
         sd = llama_permute(sd, 32, 8)
     elif arch in {'gemma2'}:
         sd['model.layers.0.post_feedforward_layernorm.weight'] = torch.randn(
             2304)
-        sd = tensor_swap(sd, HEAD_SD_MAP)
+        sd = tensor_swap(sd, arrays["HEAD"])
     elif arch in {'pig'}:
         sd = pig_work(sd)
     else:
@@ -612,7 +597,7 @@ def load_pig_state(path):
     return sd
 def load_pig(path):
     state_dict = load_pig_state(path)
-    model_arch = 'pig'
+    model_arch = arrays["TXT_ARCH_LIST"][0]
     writer = GGUFWriter(path=None, arch=model_arch)
     return writer, state_dict, model_arch
 def handle_tensors(args, writer, state_dict, model_arch):
