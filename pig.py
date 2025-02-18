@@ -20,8 +20,7 @@ for key, value in data[0].items():
     arrays[key] = value
 class GGUFModelPatcher(comfy.model_patcher.ModelPatcher):
     patch_on_device = False
-    def patch_weight_to_device(self, key, device_to=None, inplace_update=False
-        ):
+    def patch_weight_to_device(self, key, device_to=None, inplace_update=False):
         if key not in self.patches:
             return
         weight = comfy.utils.get_attr(self.model, key)
@@ -393,7 +392,7 @@ def load_gguf_clip(path):
     if arch in {'t5', 't5encoder'}:
         sd = tensor_swap(sd, arrays["T5"])
     elif arch in {'llama'}:
-        sd = tensor_swap(sd, arrays["HEAD"])
+        sd = tensor_swap(sd, arrays["L3"])
         sd = llama_permute(sd, 32, 8)
     elif arch in {'gemma2'}:
         sd = tensor_swap(sd, arrays["G2"])
@@ -759,9 +758,7 @@ class TENSORCut:
     def cut(self, select_safetensors):
         input_file = folder_paths.get_full_path('select_safetensors',
             select_safetensors)
-        output_file = (
-            f'{self.output_dir}/{os.path.splitext(select_safetensors)[0]}_fp8_e4m3fn.safetensors'
-            )
+        output_file = (f'{self.output_dir}/{os.path.splitext(select_safetensors)[0]}_fp8_e4m3fn.safetensors')
         data = load_file(input_file)
         quantized_data = {}
         print('Starting quantization process...')
@@ -802,11 +799,8 @@ def convert_gguf_to_safetensors(gguf_path, output_path, use_bf16):
                     float16)
             weights_hf = weights_tensor
         except Exception as e:
-            print(
-                f"Error during BF16 conversion for tensor '{tensor_name}': {e}"
-                )
-            weights_tensor = torch.from_numpy(weights.astype(numpy.float32)
-                ).to(torch.float16)
+            print(f"Error during BF16 conversion for tensor '{tensor_name}': {e}")
+            weights_tensor = torch.from_numpy(weights.astype(numpy.float32)).to(torch.float16)
             weights_hf = weights_tensor
         tensors_dict[tensor_name] = weights_hf
     metadata = {key: str(reader.get_field(key)) for key in reader.fields}
@@ -834,9 +828,7 @@ class GGUFUndo:
         return sorted(files)
     def undo(self, select_gguf):
         in_file = folder_paths.get_full_path('select_gguf', select_gguf)
-        out_file = (
-            f'{self.output_dir}/{os.path.splitext(select_gguf)[0]}_fp16.safetensors'
-            )
+        out_file = (f'{self.output_dir}/{os.path.splitext(select_gguf)[0]}_fp16.safetensors')
         use_bf16 = False
         convert_gguf_to_safetensors(in_file, out_file, use_bf16)
         return {}
