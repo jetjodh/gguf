@@ -396,9 +396,7 @@ def load_gguf_clip(path):
         sd = tensor_swap(sd, arrays["HEAD"])
         sd = llama_permute(sd, 32, 8)
     elif arch in {'gemma2'}:
-        # sd['model.layers.0.post_feedforward_layernorm.weight'] = torch.randn(
-        #     2304)
-        sd = tensor_swap(sd, arrays["HEAD"])
+        sd = tensor_swap(sd, arrays["G2"])
     elif arch in {'pig'}:
         sd = pig_work(sd)
     else:
