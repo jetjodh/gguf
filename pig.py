@@ -409,18 +409,18 @@ class VaeGGUF:
     RETURN_TYPES = 'VAE',
     FUNCTION = 'load_vae'
     CATEGORY = 'gguf'
-    TITLE = 'GGUF VAE'
-    @classmethod
-    def get_filename_list(s):
-        files = []
-        files += folder_paths.get_filename_list('vae')
-        files += folder_paths.get_filename_list('vae_gguf')
-        return sorted(files)
+    TITLE = 'GGUF VAE (Experimental)'
+    # @classmethod
+    # def get_filename_list(s):
+    #     files = []
+    #     files += folder_paths.get_filename_list('vae')
+    #     files += folder_paths.get_filename_list('vae_gguf')
+    #     return sorted(files)
     def load_vae(self, gguf_name):
         vae = []
         for p in gguf_name:
             if p.endswith('.gguf'):
-                sd = load_gguf_clip(p)
+                sd = load_gguf_sd(p) # load_gguf_clip(p)
             else:
                 sd = comfy.utils.load_torch_file(p)
             vae = comfy.sd.VAE(sd=sd)
