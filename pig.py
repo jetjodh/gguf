@@ -401,6 +401,30 @@ def load_gguf_clip(path):
     else:
         pass
     return sd
+class VaeGGUF:
+    @classmethod
+    def INPUT_TYPES(s):
+        gguf_names = [x for x in folder_paths.get_filename_list('model_gguf')]
+        return {'required': {'gguf_name': (gguf_names,)}}
+    RETURN_TYPES = 'VAE',
+    FUNCTION = 'load_vae'
+    CATEGORY = 'gguf'
+    TITLE = 'GGUF VAE'
+    @classmethod
+    def get_filename_list(s):
+        files = []
+        files += folder_paths.get_filename_list('vae')
+        files += folder_paths.get_filename_list('vae_gguf')
+        return sorted(files)
+    def load_vae(self, gguf_name):
+        vae = []
+        for p in gguf_name:
+            if p.endswith('.gguf'):
+                sd = load_gguf_clip(p)
+            else:
+                sd = comfy.utils.load_torch_file(p)
+            vae = comfy.sd.VAE(sd=sd)
+        return vae
 class LoaderGGUF:
     @classmethod
     def INPUT_TYPES(s):
@@ -838,6 +862,7 @@ NODE_CLASS_MAPPINGS = {
     "DualClipLoaderGGUF": DualClipLoaderGGUF,
     "TripleClipLoaderGGUF": TripleClipLoaderGGUF,
     "LoaderGGUFAdvanced": LoaderGGUFAdvanced,
+    "VaeGGUF": VaeGGUF,
     "GGUFUndo": GGUFUndo,
     "GGUFSave": GGUFSave,
     "GGUFRun": GGUFRun,
