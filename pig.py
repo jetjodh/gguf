@@ -20,7 +20,8 @@ for key, value in data[0].items():
     arrays[key] = value
 class GGUFModelPatcher(comfy.model_patcher.ModelPatcher):
     patch_on_device = False
-    def patch_weight_to_device(self, key, device_to=None, inplace_update=False):
+    def patch_weight_to_device(self, key, device_to=None, inplace_update=False
+        ):
         if key not in self.patches:
             return
         weight = comfy.utils.get_attr(self.model, key)
@@ -291,6 +292,7 @@ def get_folder_names_and_paths(key, targets=[]):
             f'Unknown file list already present on key {key}: {base}')
 get_folder_names_and_paths('model_gguf', ['diffusion_models', 'unet'])
 get_folder_names_and_paths('clip_gguf', ['text_encoders', 'clip'])
+get_folder_names_and_paths('vae_gguf', ['vae'])
 def get_orig_shape(reader, tensor_name):
     field_key = f'comfy.gguf.orig_shape.{tensor_name}'
     field = reader.get_field(field_key)
@@ -390,98 +392,17 @@ def llama_permute(raw_sd, n_head, n_head_kv):
 def load_gguf_clip(path):
     sd, arch = load_gguf_sd(path, return_arch=True)
     if arch in {'t5', 't5encoder'}:
-        sd = tensor_swap(sd, arrays["T5"])
+        sd = tensor_swap(sd, arrays['T5'])
     elif arch in {'llama'}:
-        sd = tensor_swap(sd, arrays["L3"])
+        sd = tensor_swap(sd, arrays['L3'])
         sd = llama_permute(sd, 32, 8)
     elif arch in {'gemma2'}:
-        sd = tensor_swap(sd, arrays["G2"])
+        sd = tensor_swap(sd, arrays['G2'])
     elif arch in {'pig'}:
         sd = pig_work(sd)
     else:
         pass
     return sd
-class VaeGGUF:
-    @staticmethod
-    def vae_list():
-        vaes = folder_paths.get_filename_list("vae")
-        approx_vaes = folder_paths.get_filename_list("vae_approx")
-        sdxl_taesd_enc = False
-        sdxl_taesd_dec = False
-        sd1_taesd_enc = False
-        sd1_taesd_dec = False
-        sd3_taesd_enc = False
-        sd3_taesd_dec = False
-        f1_taesd_enc = False
-        f1_taesd_dec = False
-        for v in approx_vaes:
-            if v.startswith("taesd_decoder."):
-                sd1_taesd_dec = True
-            elif v.startswith("taesd_encoder."):
-                sd1_taesd_enc = True
-            elif v.startswith("taesdxl_decoder."):
-                sdxl_taesd_dec = True
-            elif v.startswith("taesdxl_encoder."):
-                sdxl_taesd_enc = True
-            elif v.startswith("taesd3_decoder."):
-                sd3_taesd_dec = True
-            elif v.startswith("taesd3_encoder."):
-                sd3_taesd_enc = True
-            elif v.startswith("taef1_encoder."):
-                f1_taesd_dec = True
-            elif v.startswith("taef1_decoder."):
-                f1_taesd_enc = True
-        if sd1_taesd_dec and sd1_taesd_enc:
-            vaes.append("taesd")
-        if sdxl_taesd_dec and sdxl_taesd_enc:
-            vaes.append("taesdxl")
-        if sd3_taesd_dec and sd3_taesd_enc:
-            vaes.append("taesd3")
-        if f1_taesd_dec and f1_taesd_enc:
-            vaes.append("taef1")
-        return vaes
-    @staticmethod
-    def load_taesd(name):
-        sd = {}
-        approx_vaes = folder_paths.get_filename_list("vae_approx")
-        encoder = next(filter(lambda a: a.startswith("{}_encoder.".format(name)), approx_vaes))
-        decoder = next(filter(lambda a: a.startswith("{}_decoder.".format(name)), approx_vaes))
-        enc = comfy.utils.load_torch_file(folder_paths.get_full_path_or_raise("vae_approx", encoder))
-        for k in enc:
-            sd["taesd_encoder.{}".format(k)] = enc[k]
-        dec = comfy.utils.load_torch_file(folder_paths.get_full_path_or_raise("vae_approx", decoder))
-        for k in dec:
-            sd["taesd_decoder.{}".format(k)] = dec[k]
-        if name == "taesd":
-            sd["vae_scale"] = torch.tensor(0.18215)
-            sd["vae_shift"] = torch.tensor(0.0)
-        elif name == "taesdxl":
-            sd["vae_scale"] = torch.tensor(0.13025)
-            sd["vae_shift"] = torch.tensor(0.0)
-        elif name == "taesd3":
-            sd["vae_scale"] = torch.tensor(1.5305)
-            sd["vae_shift"] = torch.tensor(0.0609)
-        elif name == "taef1":
-            sd["vae_scale"] = torch.tensor(0.3611)
-            sd["vae_shift"] = torch.tensor(0.1159)
-        return sd
-    @classmethod
-    def INPUT_TYPES(s):
-        return {"required": { "vae_name": (s.vae_list(), )}}
-    RETURN_TYPES = ("VAE",)
-    FUNCTION = "load_vae"
-    CATEGORY = "gguf"
-    TITLE = 'GGUF VAE (Experimental)'
-    def load_vae(self, vae_name):
-        if vae_name.endswith('.gguf'):
-            sd = load_gguf_sd(vae_name)
-        if vae_name in ["taesd", "taesdxl", "taesd3", "taef1"]:
-            sd = self.load_taesd(vae_name)
-        else:
-            vae_path = folder_paths.get_full_path_or_raise("vae", vae_name)
-            sd = comfy.utils.load_torch_file(vae_path)
-        vae = comfy.sd.VAE(sd=sd)
-        return (vae,)
 class LoaderGGUF:
     @classmethod
     def INPUT_TYPES(s):
@@ -533,7 +454,8 @@ def get_clip_type(name):
         raise ValueError(f'Unknown CLIP model type {name}')
     clip_type = getattr(comfy.sd.CLIPType, arrays['CLIP_ENUM_MAP'][name], None)
     if clip_type is None:
-        raise ValueError(f'Unsupported CLIP model type {name} (please upgrade your node)')
+        raise ValueError(
+            f'Unsupported CLIP model type {name} (please upgrade your node)')
     return clip_type
 class ClipLoaderGGUF:
     @classmethod
@@ -543,7 +465,7 @@ class ClipLoaderGGUF:
     RETURN_TYPES = 'CLIP',
     FUNCTION = 'load_clip'
     CATEGORY = 'gguf'
-    TITLE = 'GGUF CLIPLoader'
+    TITLE = 'GGUF CLIP Loader'
     @classmethod
     def get_filename_list(s):
         files = []
@@ -577,7 +499,7 @@ class DualClipLoaderGGUF(ClipLoaderGGUF):
         file_options = s.get_filename_list(),
         return {'required': {'clip_name1': file_options, 'clip_name2':
             file_options, 'type': (arrays['CLIP_2'],)}}
-    TITLE = 'GGUF DualCLIPLoader'
+    TITLE = 'GGUF DualCLIP Loader'
     def load_clip(self, clip_name1, clip_name2, type):
         clip_path1 = folder_paths.get_full_path('clip', clip_name1)
         clip_path2 = folder_paths.get_full_path('clip', clip_name2)
@@ -590,7 +512,7 @@ class TripleClipLoaderGGUF(ClipLoaderGGUF):
         file_options = s.get_filename_list(),
         return {'required': {'clip_name1': file_options, 'clip_name2':
             file_options, 'clip_name3': file_options}}
-    TITLE = 'GGUF TripleCLIPLoader'
+    TITLE = 'GGUF TripleCLIP Loader'
     def load_clip(self, clip_name1, clip_name2, clip_name3, type='sd3'):
         clip_path1 = folder_paths.get_full_path('clip', clip_name1)
         clip_path2 = folder_paths.get_full_path('clip', clip_name2)
@@ -675,7 +597,7 @@ def load_pig_state(path):
     return sd
 def load_pig(path):
     state_dict = load_pig_state(path)
-    model_arch = arrays["TXT_ARCH_LIST"][0]
+    model_arch = arrays['TXT_ARCH_LIST'][0]
     writer = GGUFWriter(path=None, arch=model_arch)
     return writer, state_dict, model_arch
 def handle_tensors(args, writer, state_dict, model_arch):
@@ -839,7 +761,9 @@ class TENSORCut:
     def cut(self, select_safetensors):
         input_file = folder_paths.get_full_path('select_safetensors',
             select_safetensors)
-        output_file = (f'{self.output_dir}/{os.path.splitext(select_safetensors)[0]}_fp8_e4m3fn.safetensors')
+        output_file = (
+            f'{self.output_dir}/{os.path.splitext(select_safetensors)[0]}_fp8_e4m3fn.safetensors'
+            )
         data = load_file(input_file)
         quantized_data = {}
         print('Starting quantization process...')
@@ -880,8 +804,11 @@ def convert_gguf_to_safetensors(gguf_path, output_path, use_bf16):
                     float16)
             weights_hf = weights_tensor
         except Exception as e:
-            print(f"Error during BF16 conversion for tensor '{tensor_name}': {e}")
-            weights_tensor = torch.from_numpy(weights.astype(numpy.float32)).to(torch.float16)
+            print(
+                f"Error during BF16 conversion for tensor '{tensor_name}': {e}"
+                )
+            weights_tensor = torch.from_numpy(weights.astype(numpy.float32)
+                ).to(torch.float16)
             weights_hf = weights_tensor
         tensors_dict[tensor_name] = weights_hf
     metadata = {key: str(reader.get_field(key)) for key in reader.fields}
@@ -909,10 +836,100 @@ class GGUFUndo:
         return sorted(files)
     def undo(self, select_gguf):
         in_file = folder_paths.get_full_path('select_gguf', select_gguf)
-        out_file = (f'{self.output_dir}/{os.path.splitext(select_gguf)[0]}_fp16.safetensors')
+        out_file = (
+            f'{self.output_dir}/{os.path.splitext(select_gguf)[0]}_fp16.safetensors'
+            )
         use_bf16 = False
         convert_gguf_to_safetensors(in_file, out_file, use_bf16)
         return {}
+class VaeGGUF:
+    @staticmethod
+    def vae_list():
+        vaes = []
+        vaes += folder_paths.get_filename_list('vae')
+        vaes += folder_paths.get_filename_list('vae_gguf')
+        approx_vaes = folder_paths.get_filename_list('vae_approx')
+        sdxl_taesd_enc = False
+        sdxl_taesd_dec = False
+        sd1_taesd_enc = False
+        sd1_taesd_dec = False
+        sd3_taesd_enc = False
+        sd3_taesd_dec = False
+        f1_taesd_enc = False
+        f1_taesd_dec = False
+        for v in approx_vaes:
+            if v.startswith('taesd_decoder.'):
+                sd1_taesd_dec = True
+            elif v.startswith('taesd_encoder.'):
+                sd1_taesd_enc = True
+            elif v.startswith('taesdxl_decoder.'):
+                sdxl_taesd_dec = True
+            elif v.startswith('taesdxl_encoder.'):
+                sdxl_taesd_enc = True
+            elif v.startswith('taesd3_decoder.'):
+                sd3_taesd_dec = True
+            elif v.startswith('taesd3_encoder.'):
+                sd3_taesd_enc = True
+            elif v.startswith('taef1_encoder.'):
+                f1_taesd_dec = True
+            elif v.startswith('taef1_decoder.'):
+                f1_taesd_enc = True
+        if sd1_taesd_dec and sd1_taesd_enc:
+            vaes.append('taesd')
+        if sdxl_taesd_dec and sdxl_taesd_enc:
+            vaes.append('taesdxl')
+        if sd3_taesd_dec and sd3_taesd_enc:
+            vaes.append('taesd3')
+        if f1_taesd_dec and f1_taesd_enc:
+            vaes.append('taef1')
+        return vaes
+    @staticmethod
+    def load_taesd(name):
+        sd = {}
+        approx_vaes = folder_paths.get_filename_list('vae_approx')
+        encoder = next(filter(lambda a: a.startswith('{}_encoder.'.format(
+            name)), approx_vaes))
+        decoder = next(filter(lambda a: a.startswith('{}_decoder.'.format(
+            name)), approx_vaes))
+        enc = comfy.utils.load_torch_file(folder_paths.
+            get_full_path_or_raise('vae_approx', encoder))
+        for k in enc:
+            sd['taesd_encoder.{}'.format(k)] = enc[k]
+        dec = comfy.utils.load_torch_file(folder_paths.
+            get_full_path_or_raise('vae_approx', decoder))
+        for k in dec:
+            sd['taesd_decoder.{}'.format(k)] = dec[k]
+        if name == 'taesd':
+            sd['vae_scale'] = torch.tensor(0.18215)
+            sd['vae_shift'] = torch.tensor(0.0)
+        elif name == 'taesdxl':
+            sd['vae_scale'] = torch.tensor(0.13025)
+            sd['vae_shift'] = torch.tensor(0.0)
+        elif name == 'taesd3':
+            sd['vae_scale'] = torch.tensor(1.5305)
+            sd['vae_shift'] = torch.tensor(0.0609)
+        elif name == 'taef1':
+            sd['vae_scale'] = torch.tensor(0.3611)
+            sd['vae_shift'] = torch.tensor(0.1159)
+        return sd
+    @classmethod
+    def INPUT_TYPES(s):
+        return {'required': {'vae_name': (s.vae_list(),)}}
+    RETURN_TYPES = 'VAE',
+    FUNCTION = 'load_vae'
+    CATEGORY = 'gguf'
+    TITLE = 'GGUF VAE Loader'
+    def load_vae(self, vae_name):
+        if vae_name.endswith('.gguf'):
+            vae_path = folder_paths.get_full_path_or_raise('vae_gguf', vae_name)
+            sd = load_gguf_clip(vae_path)
+        elif vae_name in ['taesd', 'taesdxl', 'taesd3', 'taef1']:
+            sd = self.load_taesd(vae_name)
+        else:
+            vae_path = folder_paths.get_full_path_or_raise('vae', vae_name)
+            sd = comfy.utils.load_torch_file(vae_path)
+        vae = comfy.sd.VAE(sd=sd)
+        return vae,
 NODE_CLASS_MAPPINGS = {
     "LoaderGGUF": LoaderGGUF,
     "ClipLoaderGGUF": ClipLoaderGGUF,
