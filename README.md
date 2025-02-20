@@ -96,7 +96,7 @@ for the demo workflow (picture) above, you could get the test model gguf [here](
 
 ### GGUF VAE Loader🐷
 - you can't believe it works; but it really works!
-- convert you safetensors vae to gguf vae using convertor zero; and try it out! 
+- convert you safetensors vae to gguf vae using convertor zero; then try it out! 
 
 #### reference
 [comfyui](https://github.com/comfyanonymous/ComfyUI)
