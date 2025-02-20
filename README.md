@@ -95,7 +95,7 @@ for the demo workflow (picture) above, you could get the test model gguf [here](
 - 🐷**pig architecture**: not merely model conversion; it works for converting encoder as well; true! the amazing thing is - any form of safetensors can be converted! (but the file works or not; is another story)🐷
 
 ### GGUF VAE Loader🐷
-- you can't believe it works; but it really works!
+- you can't IMAGINE it works; but it really works!
 - convert you safetensors vae to gguf vae using convertor zero; then try it out! 
 
 #### reference
