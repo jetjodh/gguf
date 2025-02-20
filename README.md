@@ -94,6 +94,10 @@ for the demo workflow (picture) above, you could get the test model gguf [here](
 - when it was done; the converted gguf file will be saved to the output folder (./ComfyUI/output)
 - 🐷**pig architecture**: not merely model conversion; it works for converting encoder as well; true! the amazing thing is - any form of safetensors can be converted! (but the file works or not; is another story)🐷
 
+### GGUF VAE Loader🐷
+- you can't believe it works; but it really works!
+- convert you safetensors vae to gguf vae using convertor zero; and try it out! 
+
 #### reference
 [comfyui](https://github.com/comfyanonymous/ComfyUI)
 [confyui_vlm_nodes](https://github.com/gokayfem/ComfyUI_VLM_nodes)
