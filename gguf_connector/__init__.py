@@ -1,4 +1,4 @@
-__version__ = '1.2.1'
+__version__ = '1.2.2'
 def __init__():
     import argparse
     parser = argparse.ArgumentParser()
@@ -18,6 +18,7 @@ def __init__():
     subparsers.add_parser('y', help='[y] download comfy')
     subparsers.add_parser('n', help='[n] clone node')
     subparsers.add_parser('u', help='[u] get cutter')
+    subparsers.add_parser('p', help='[p] take pack')
     subparsers.add_parser('r', help='[r] metadata reader')
     subparsers.add_parser('r2', help='[r2] metadata fast reader')
     subparsers.add_parser('r3', help='[r3] tensor reader')
@@ -39,6 +40,8 @@ def __init__():
         from gguf_connector import m
     if args.subcommand == 'n':
         from gguf_connector import n
+    if args.subcommand == 'p':
+        from gguf_connector import p
     elif args.subcommand == 'r':
         from gguf_connector import r
     elif args.subcommand == 'r2':
