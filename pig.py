@@ -126,6 +126,13 @@ class GGMLTensor(torch.Tensor):
         if not hasattr(self, 'tensor_shape'):
             self.tensor_shape = self.size()
         return self.tensor_shape
+if hasattr(torch, "compiler") and hasattr(torch.compiler, "disable"):
+    torch_compiler_disable = torch.compiler.disable
+else:
+    def torch_compiler_disable(*args, **kwargs):
+        def noop(x):
+            return x
+        return noop
 class GGMLLayer(torch.nn.Module):
     comfy_cast_weights = True
     dequant_dtype = None
@@ -202,6 +209,7 @@ class GGMLLayer(torch.nn.Module):
                     self.patch_dtype)
                 weight = function(patch_list, weight, key, patch_dtype)
         return weight
+    @torch_compiler_disable()
     def cast_bias_weight(s, input=None, dtype=None, device=None, bias_dtype
         =None):
         if input is not None:
@@ -836,9 +844,7 @@ class GGUFUndo:
         return sorted(files)
     def undo(self, select_gguf):
         in_file = folder_paths.get_full_path('select_gguf', select_gguf)
-        out_file = (
-            f'{self.output_dir}/{os.path.splitext(select_gguf)[0]}_fp16.safetensors'
-            )
+        out_file = (f'{self.output_dir}/{os.path.splitext(select_gguf)[0]}_fp16.safetensors')
         use_bf16 = False
         convert_gguf_to_safetensors(in_file, out_file, use_bf16)
         return {}
