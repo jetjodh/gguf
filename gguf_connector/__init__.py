@@ -1,4 +1,4 @@
-__version__ = '1.2.2'
+__version__ = '1.2.3'
 def __init__():
     import argparse
     parser = argparse.ArgumentParser()
@@ -29,6 +29,7 @@ def __init__():
     subparsers.add_parser('t2', help='[t2] tensor convertor (beta)')
     subparsers.add_parser('t3', help='[t3] tensor convertor (gamma)')
     subparsers.add_parser('t4', help='[t4] tensor convertor (delta)')
+    subparsers.add_parser('t5', help='[t5] tensor convertor (epsilon)')
     subparsers.add_parser('pp', help='[pp] pdf analyzor pp')
     subparsers.add_parser('cp', help='[cp] pdf analyzor cp')
     subparsers.add_parser('ps', help='[ps] wav recognizor ps')
@@ -72,6 +73,8 @@ def __init__():
         from gguf_connector import t3
     elif args.subcommand == 't4':
         from gguf_connector import t4
+    elif args.subcommand == 't5':
+        from gguf_connector import t5
     elif args.subcommand == 'q':
         from gguf_connector import q
     elif args.subcommand == 'cg':
