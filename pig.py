@@ -1,38 +1,27 @@
-import collections
-import json
-import logging
-import os
-from typing import Dict, Tuple
-
-import comfy.model_management
-import comfy.model_patcher
-import comfy.ops
 import comfy.sd
+import comfy.ops
 import comfy.utils
-import folder_paths
-import numpy
-import torch
+import comfy.model_patcher
+import comfy.model_management
+import torch, numpy, os, json, logging, collections, folder_paths
 from safetensors.torch import load_file, save_file
+from typing import Dict, Tuple
 from tqdm import tqdm as loading
-
 from .gguf_connector import reader as gr
+from .gguf_connector.writer import GGUFWriter, GGMLQuantizationType
 from .gguf_connector.const import GGML_QUANT_VERSION, LlamaFileType
-from .gguf_connector.quant import QuantError, dequantize, quantize
+from .gguf_connector.quant import quantize, dequantize, QuantError
 from .gguf_connector.quant2 import dequantize_tensor, is_quantized, is_torch_compatible
-from .gguf_connector.writer import GGMLQuantizationType, GGUFWriter
-
-pig = os.path.join(os.path.dirname(__file__), "version.json")
-with open(pig, "r") as file:
+pig = os.path.join(os.path.dirname(__file__), 'version.json')
+with open(pig, 'r') as file:
     data = json.load(file)
 arrays = {}
 for key, value in data[0].items():
     arrays[key] = value
-
-
 class GGUFModelPatcher(comfy.model_patcher.ModelPatcher):
     patch_on_device = False
-
-    def patch_weight_to_device(self, key, device_to=None, inplace_update=False):
+    def patch_weight_to_device(self, key, device_to=None, inplace_update=False
+        ):
         if key not in self.patches:
             return
         weight = comfy.utils.get_attr(self.model, key)
@@ -43,216 +32,171 @@ class GGUFModelPatcher(comfy.model_patcher.ModelPatcher):
         patches = self.patches[key]
         if is_quantized(weight):
             out_weight = weight.to(device_to)
-            patches = load_patch_to_device(
-                patches,
-                self.load_device if self.patch_on_device else self.offload_device,
-            )
+            patches = load_patch_to_device(patches, self.load_device if
+                self.patch_on_device else self.offload_device)
             out_weight.patches = [(calculate_weight, patches, key)]
         else:
             inplace_update = self.weight_inplace_update or inplace_update
             if key not in self.backup:
-                self.backup[key] = collections.namedtuple(
-                    "Dimension", ["weight", "inplace_update"]
-                )(
-                    weight.to(device=self.offload_device, copy=inplace_update),
-                    inplace_update,
-                )
+                self.backup[key] = collections.namedtuple('Dimension', [
+                    'weight', 'inplace_update'])(weight.to(device=self.
+                    offload_device, copy=inplace_update), inplace_update)
             if device_to is not None:
-                temp_weight = comfy.model_management.cast_to_device(
-                    weight, device_to, torch.float32, copy=True
-                )
+                temp_weight = comfy.model_management.cast_to_device(weight,
+                    device_to, torch.float32, copy=True)
             else:
                 temp_weight = weight.to(torch.float32, copy=True)
             out_weight = calculate_weight(patches, temp_weight, key)
-            out_weight = comfy.float.stochastic_rounding(out_weight, weight.dtype)
+            out_weight = comfy.float.stochastic_rounding(out_weight, weight
+                .dtype)
         if inplace_update:
             comfy.utils.copy_to_param(self.model, key, out_weight)
         else:
             comfy.utils.set_attr_param(self.model, key, out_weight)
-
     def unpatch_model(self, device_to=None, unpatch_weights=True):
         if unpatch_weights:
             for p in self.model.parameters():
                 if is_torch_compatible(p):
                     continue
-                patches = getattr(p, "patches", [])
+                patches = getattr(p, 'patches', [])
                 if len(patches) > 0:
                     p.patches = []
-        return super().unpatch_model(
-            device_to=device_to, unpatch_weights=unpatch_weights
-        )
-
+        return super().unpatch_model(device_to=device_to, unpatch_weights=
+            unpatch_weights)
     mmap_released = False
-
     def load(self, *args, force_patch_weights=False, **kwargs):
         super().load(*args, force_patch_weights=True, **kwargs)
         if not self.mmap_released:
             linked = []
-            if kwargs.get("lowvram_model_memory", 0) > 0:
+            if kwargs.get('lowvram_model_memory', 0) > 0:
                 for n, m in self.model.named_modules():
-                    if hasattr(m, "weight"):
-                        device = getattr(m.weight, "device", None)
+                    if hasattr(m, 'weight'):
+                        device = getattr(m.weight, 'device', None)
                         if device == self.offload_device:
                             linked.append((n, m))
                             continue
-                    if hasattr(m, "bias"):
-                        device = getattr(m.bias, "device", None)
+                    if hasattr(m, 'bias'):
+                        device = getattr(m.bias, 'device', None)
                         if device == self.offload_device:
                             linked.append((n, m))
                             continue
             if linked:
-                print(f"Attempting to release mmap ({len(linked)})")
+                print(f'Attempting to release mmap ({len(linked)})')
                 for n, m in linked:
                     m.to(self.load_device).to(self.offload_device)
             self.mmap_released = True
-
     def clone(self, *args, **kwargs):
         src_cls = self.__class__
         self.__class__ = GGUFModelPatcher
         n = super().clone(*args, **kwargs)
         n.__class__ = GGUFModelPatcher
         self.__class__ = src_cls
-        n.patch_on_device = getattr(self, "patch_on_device", False)
+        n.patch_on_device = getattr(self, 'patch_on_device', False)
         return n
-
-
 class GGMLTensor(torch.Tensor):
     def __init__(self, *args, tensor_type, tensor_shape, patches=[], **kwargs):
         super().__init__()
         self.tensor_type = tensor_type
         self.tensor_shape = tensor_shape
         self.patches = patches
-
     def __new__(cls, *args, tensor_type, tensor_shape, patches=[], **kwargs):
         return super().__new__(cls, *args, **kwargs)
-
     def to(self, *args, **kwargs):
         new = super().to(*args, **kwargs)
-        new.tensor_type = getattr(self, "tensor_type", None)
-        new.tensor_shape = getattr(self, "tensor_shape", new.data.shape)
-        new.patches = getattr(self, "patches", []).copy()
+        new.tensor_type = getattr(self, 'tensor_type', None)
+        new.tensor_shape = getattr(self, 'tensor_shape', new.data.shape)
+        new.patches = getattr(self, 'patches', []).copy()
         return new
-
     def clone(self, *args, **kwargs):
         return self
-
     def detach(self, *args, **kwargs):
         return self
-
     def copy_(self, *args, **kwargs):
         try:
             return super().copy_(*args, **kwargs)
         except Exception as e:
             print(f"ignoring 'copy_' on tensor: {e}")
-
     def empty_(self, size, *args, **kwargs):
         new_tensor = super().empty_(size, *args, **kwargs)
-        return GGMLTensor(
-            new_tensor,
-            tensor_type=getattr(self, "tensor_type", None),
-            tensor_shape=size,
-            patches=getattr(self, "patches", []).copy(),
-        )
-
+        return GGMLTensor(new_tensor, tensor_type=getattr(self,
+            'tensor_type', None), tensor_shape=size, patches=getattr(self,
+            'patches', []).copy())
     @property
     def shape(self):
-        if not hasattr(self, "tensor_shape"):
+        if not hasattr(self, 'tensor_shape'):
             self.tensor_shape = self.size()
         return self.tensor_shape
-
-
 if hasattr(torch, "compiler") and hasattr(torch.compiler, "disable"):
     torch_compiler_disable = torch.compiler.disable
 else:
-
     def torch_compiler_disable(*args, **kwargs):
         def noop(x):
             return x
-
         return noop
-
-
 class GGMLLayer(torch.nn.Module):
     comfy_cast_weights = True
     dequant_dtype = None
     patch_dtype = None
     largest_layer = False
-    torch_compatible_tensor_types = {
-        None,
-        gr.GGMLQuantizationType.F32,
-        gr.GGMLQuantizationType.F16,
-    }
-
+    torch_compatible_tensor_types = {None, gr.GGMLQuantizationType.F32, gr.
+        GGMLQuantizationType.F16}
     def is_ggml_quantized(self, *, weight=None, bias=None):
         if weight is None:
             weight = self.weight
         if bias is None:
             bias = self.bias
         return is_quantized(weight) or is_quantized(bias)
-
     def _load_from_state_dict(self, state_dict, prefix, *args, **kwargs):
-        weight, bias = (
-            state_dict.get(f"{prefix}weight"),
-            state_dict.get(f"{prefix}bias"),
-        )
-        if self.is_ggml_quantized(weight=weight, bias=bias) or isinstance(
-            self, torch.nn.Linear
-        ):
-            return self.ggml_load_from_state_dict(state_dict, prefix, *args, **kwargs)
-        return super()._load_from_state_dict(state_dict, prefix, *args, **kwargs)
-
-    def ggml_load_from_state_dict(
-        self,
-        state_dict,
-        prefix,
-        local_metadata,
-        strict,
-        missing_keys,
-        unexpected_keys,
-        error_msgs,
-    ):
+        weight, bias = state_dict.get(f'{prefix}weight'), state_dict.get(
+            f'{prefix}bias')
+        if self.is_ggml_quantized(weight=weight, bias=bias) or isinstance(self,
+            torch.nn.Linear):
+            return self.ggml_load_from_state_dict(state_dict, prefix, *args,
+                **kwargs)
+        return super()._load_from_state_dict(state_dict, prefix, *args, **
+            kwargs)
+    def ggml_load_from_state_dict(self, state_dict, prefix, local_metadata,
+        strict, missing_keys, unexpected_keys, error_msgs):
         prefix_len = len(prefix)
         for k, v in state_dict.items():
-            if k[prefix_len:] == "weight":
+            if k[prefix_len:] == 'weight':
                 self.weight = torch.nn.Parameter(v, requires_grad=False)
-            elif k[prefix_len:] == "bias" and v is not None:
+            elif k[prefix_len:] == 'bias' and v is not None:
                 self.bias = torch.nn.Parameter(v, requires_grad=False)
             else:
                 missing_keys.append(k)
         if self.weight is None and isinstance(self, torch.nn.Linear):
             v = torch.zeros(self.in_features, self.out_features)
             self.weight = torch.nn.Parameter(v, requires_grad=False)
-            missing_keys.append(prefix + "weight")
-        if getattr(self.weight, "is_largest_weight", False):
+            missing_keys.append(prefix + 'weight')
+        if getattr(self.weight, 'is_largest_weight', False):
             self.largest_layer = True
-
     def _save_to_state_dict(self, *args, **kwargs):
         if self.is_ggml_quantized():
             return self.ggml_save_to_state_dict(*args, **kwargs)
         return super()._save_to_state_dict(*args, **kwargs)
-
     def ggml_save_to_state_dict(self, destination, prefix, keep_vars):
-        weight = torch.zeros_like(self.weight, device=torch.device("meta"))
-        destination[prefix + "weight"] = weight
+        weight = torch.zeros_like(self.weight, device=torch.device('meta'))
+        destination[prefix + 'weight'] = weight
         if self.bias is not None:
-            bias = torch.zeros_like(self.bias, device=torch.device("meta"))
-            destination[prefix + "bias"] = bias
+            bias = torch.zeros_like(self.bias, device=torch.device('meta'))
+            destination[prefix + 'bias'] = bias
         if self.largest_layer:
-            shape = getattr(self.weight, "tensor_shape", self.weight.shape)
+            shape = getattr(self.weight, 'tensor_shape', self.weight.shape)
             dtype = self.dequant_dtype or torch.float16
-            temp = torch.empty(*shape, device=torch.device("meta"), dtype=dtype)
-            destination[prefix + "temp.weight"] = temp
+            temp = torch.empty(*shape, device=torch.device('meta'), dtype=dtype
+                )
+            destination[prefix + 'temp.weight'] = temp
         return
-        destination[prefix + "weight"] = self.get_weight(self.weight)
+        destination[prefix + 'weight'] = self.get_weight(self.weight)
         if bias is not None:
-            destination[prefix + "bias"] = self.get_weight(self.bias)
-
+            destination[prefix + 'bias'] = self.get_weight(self.bias)
     def get_weight(self, tensor, dtype):
         if tensor is None:
             return
         patch_list = []
         device = tensor.device
-        for function, patches, key in getattr(tensor, "patches", []):
+        for function, patches, key in getattr(tensor, 'patches', []):
             patch_list += load_patch_to_device(patches, device)
         weight = dequantize_tensor(tensor, dtype, self.dequant_dtype)
         if isinstance(weight, GGMLTensor):
@@ -261,34 +205,31 @@ class GGMLLayer(torch.nn.Module):
             if self.patch_dtype is None:
                 weight = function(patch_list, weight, key)
             else:
-                patch_dtype = (
-                    dtype if self.patch_dtype == "target" else self.patch_dtype
-                )
+                patch_dtype = (dtype if self.patch_dtype == 'target' else
+                    self.patch_dtype)
                 weight = function(patch_list, weight, key, patch_dtype)
         return weight
-
     @torch_compiler_disable()
-    def cast_bias_weight(s, input=None, dtype=None, device=None, bias_dtype=None):
+    def cast_bias_weight(s, input=None, dtype=None, device=None, bias_dtype
+        =None):
         if input is not None:
             if dtype is None:
-                dtype = getattr(input, "dtype", torch.float32)
+                dtype = getattr(input, 'dtype', torch.float32)
             if bias_dtype is None:
                 bias_dtype = dtype
             if device is None:
                 device = input.device
         bias = None
-        non_blocking = comfy.model_management.device_supports_non_blocking(device)
+        non_blocking = comfy.model_management.device_supports_non_blocking(
+            device)
         if s.bias is not None:
             bias = s.get_weight(s.bias.to(device), dtype)
-            bias = comfy.ops.cast_to(
-                bias, bias_dtype, device, non_blocking=non_blocking, copy=False
-            )
+            bias = comfy.ops.cast_to(bias, bias_dtype, device, non_blocking
+                =non_blocking, copy=False)
         weight = s.get_weight(s.weight.to(device), dtype)
-        weight = comfy.ops.cast_to(
-            weight, dtype, device, non_blocking=non_blocking, copy=False
-        )
+        weight = comfy.ops.cast_to(weight, dtype, device, non_blocking=
+            non_blocking, copy=False)
         return weight, bias
-
     def forward_comfy_cast_weights(self, input, *args, **kwargs):
         if self.is_ggml_quantized():
             out = self.forward_ggml_cast_weights(input, *args, **kwargs)
@@ -297,69 +238,47 @@ class GGMLLayer(torch.nn.Module):
         if isinstance(out, GGMLTensor):
             out.__class__ = torch.Tensor
         return out
-
     def forward_ggml_cast_weights(self, input):
         raise NotImplementedError
-
-
 class GGMLOps(comfy.ops.manual_cast):
     class Linear(GGMLLayer, comfy.ops.manual_cast.Linear):
-        def __init__(
-            self, in_features, out_features, bias=True, device=None, dtype=None
-        ):
+        def __init__(self, in_features, out_features, bias=True, device=
+            None, dtype=None):
             torch.nn.Module.__init__(self)
             self.in_features = in_features
             self.out_features = out_features
             self.weight = None
             self.bias = None
-
         def forward_ggml_cast_weights(self, input):
             weight, bias = self.cast_bias_weight(input)
             return torch.nn.functional.linear(input, weight, bias)
-
     class Conv2d(GGMLLayer, comfy.ops.manual_cast.Conv2d):
         def forward_ggml_cast_weights(self, input):
             weight, bias = self.cast_bias_weight(input)
             return self._conv_forward(input, weight, bias)
-
     class Embedding(GGMLLayer, comfy.ops.manual_cast.Embedding):
         def forward_ggml_cast_weights(self, input, out_dtype=None):
             output_dtype = out_dtype
-            if (
-                self.weight.dtype == torch.float16
-                or self.weight.dtype == torch.bfloat16
-            ):
+            if (self.weight.dtype == torch.float16 or self.weight.dtype ==
+                torch.bfloat16):
                 out_dtype = None
-            weight, _bias = self.cast_bias_weight(
-                self, device=input.device, dtype=out_dtype
-            )
-            return torch.nn.functional.embedding(
-                input,
-                weight,
-                self.padding_idx,
-                self.max_norm,
-                self.norm_type,
-                self.scale_grad_by_freq,
-                self.sparse,
-            ).to(dtype=output_dtype)
-
+            weight, _bias = self.cast_bias_weight(self, device=input.device,
+                dtype=out_dtype)
+            return torch.nn.functional.embedding(input, weight, self.
+                padding_idx, self.max_norm, self.norm_type, self.
+                scale_grad_by_freq, self.sparse).to(dtype=output_dtype)
     class LayerNorm(GGMLLayer, comfy.ops.manual_cast.LayerNorm):
         def forward_ggml_cast_weights(self, input):
             if self.weight is None:
                 return super().forward_comfy_cast_weights(input)
             weight, bias = self.cast_bias_weight(input)
-            return torch.nn.functional.layer_norm(
-                input, self.normalized_shape, weight, bias, self.eps
-            )
-
+            return torch.nn.functional.layer_norm(input, self.
+                normalized_shape, weight, bias, self.eps)
     class GroupNorm(GGMLLayer, comfy.ops.manual_cast.GroupNorm):
         def forward_ggml_cast_weights(self, input):
             weight, bias = self.cast_bias_weight(input)
-            return torch.nn.functional.group_norm(
-                input, self.num_groups, weight, bias, self.eps
-            )
-
-
+            return torch.nn.functional.group_norm(input, self.num_groups,
+                weight, bias, self.eps)
 def load_patch_to_device(item, device):
     if isinstance(item, torch.Tensor):
         return item.to(device, non_blocking=True)
@@ -369,42 +288,34 @@ def load_patch_to_device(item, device):
         return [load_patch_to_device(x, device) for x in item]
     else:
         return item
-
-
 def get_folder_names_and_paths(key, targets=[]):
     base = folder_paths.folder_names_and_paths.get(key, ([], {}))
     base = base[0] if isinstance(base[0], (list, set, tuple)) else []
-    target = next(
-        (x for x in targets if x in folder_paths.folder_names_and_paths), targets[0]
-    )
+    target = next((x for x in targets if x in folder_paths.
+        folder_names_and_paths), targets[0])
     orig, _ = folder_paths.folder_names_and_paths.get(target, ([], {}))
-    folder_paths.folder_names_and_paths[key] = orig or base, {".gguf"}
+    folder_paths.folder_names_and_paths[key] = orig or base, {'.gguf'}
     if base and base != orig:
-        logging.warning(f"Unknown file list already present on key {key}: {base}")
-
-
-get_folder_names_and_paths("model_gguf", ["diffusion_models", "unet"])
-get_folder_names_and_paths("clip_gguf", ["text_encoders", "clip"])
-get_folder_names_and_paths("vae_gguf", ["vae"])
-
-
+        logging.warning(
+            f'Unknown file list already present on key {key}: {base}')
+get_folder_names_and_paths('model_gguf', ['diffusion_models', 'unet'])
+get_folder_names_and_paths('clip_gguf', ['text_encoders', 'clip'])
+get_folder_names_and_paths('vae_gguf', ['vae'])
 def get_orig_shape(reader, tensor_name):
-    field_key = f"comfy.gguf.orig_shape.{tensor_name}"
+    field_key = f'comfy.gguf.orig_shape.{tensor_name}'
     field = reader.get_field(field_key)
     if field is None:
         return None
-    if (
-        len(field.types) != 2
-        or field.types[0] != gr.GGUFValueType.ARRAY
-        or field.types[1] != gr.GGUFValueType.INT32
-    ):
+    if len(field.types) != 2 or field.types[0
+        ] != gr.GGUFValueType.ARRAY or field.types[1
+        ] != gr.GGUFValueType.INT32:
         raise TypeError(
-            f"Bad original shape metadata for {field_key}: Expected ARRAY of INT32, got {field.types}"
-        )
-    return torch.Size(tuple(int(field.parts[part_idx][0]) for part_idx in field.data))
-
-
-def load_gguf_sd(path, handle_prefix="model.diffusion_model.", return_arch=False):
+            f'Bad original shape metadata for {field_key}: Expected ARRAY of INT32, got {field.types}'
+            )
+    return torch.Size(tuple(int(field.parts[part_idx][0]) for part_idx in
+        field.data))
+def load_gguf_sd(path, handle_prefix='model.diffusion_model.', return_arch=
+    False):
     reader = gr.GGUFReader(path)
     has_prefix = False
     if handle_prefix is not None:
@@ -421,20 +332,19 @@ def load_gguf_sd(path, handle_prefix="model.diffusion_model.", return_arch=False
         tensors.append((sd_key, tensor))
     compat = None
     arch_str = None
-    arch_field = reader.get_field("general.architecture")
+    arch_field = reader.get_field('general.architecture')
     if arch_field is not None:
-        if len(arch_field.types) != 1 or arch_field.types[0] != gr.GGUFValueType.STRING:
+        if len(arch_field.types) != 1 or arch_field.types[0
+            ] != gr.GGUFValueType.STRING:
             raise TypeError(
-                f"Bad type for GGUF general.architecture key: expected string, got {arch_field.types!r}"
-            )
-        arch_str = str(arch_field.parts[arch_field.data[-1]], encoding="utf-8")
-        if (
-            arch_str not in arrays["PIG_ARCH_LIST"]
-            and arch_str not in arrays["TXT_ARCH_LIST"]
-        ):
-            raise ValueError(f"Unknown architecture: {arch_str!r}")
+                f'Bad type for GGUF general.architecture key: expected string, got {arch_field.types!r}'
+                )
+        arch_str = str(arch_field.parts[arch_field.data[-1]], encoding='utf-8')
+        if arch_str not in arrays['PIG_ARCH_LIST'] and arch_str not in arrays[
+            'TXT_ARCH_LIST']:
+            raise ValueError(f'Unknown architecture: {arch_str!r}')
     else:
-        compat = "sd.cpp"
+        compat = 'sd.cpp'
     state_dict, qtype_dict = {}, {}
     for sd_key, tensor in tensors:
         tensor_name = tensor.name
@@ -443,36 +353,27 @@ def load_gguf_sd(path, handle_prefix="model.diffusion_model.", return_arch=False
         shape = get_orig_shape(reader, tensor_name)
         if shape is None:
             shape = torch.Size(tuple(int(v) for v in reversed(tensor.shape)))
-            if compat == "sd.cpp" and arch_str == "sdxl":
-                if any(
-                    [
-                        tensor_name.endswith(x)
-                        for x in (".proj_in.weight", ".proj_out.weight")
-                    ]
-                ):
+            if compat == 'sd.cpp' and arch_str == 'sdxl':
+                if any([tensor_name.endswith(x) for x in ('.proj_in.weight',
+                    '.proj_out.weight')]):
                     while len(shape) > 2 and shape[-1] == 1:
                         shape = shape[:-1]
-        if tensor.tensor_type in {
-            gr.GGMLQuantizationType.F32,
-            gr.GGMLQuantizationType.F16,
-        }:
+        if tensor.tensor_type in {gr.GGMLQuantizationType.F32, gr.
+            GGMLQuantizationType.F16}:
             torch_tensor = torch_tensor.view(*shape)
-        state_dict[sd_key] = GGMLTensor(
-            torch_tensor, tensor_type=tensor.tensor_type, tensor_shape=shape
-        )
+        state_dict[sd_key] = GGMLTensor(torch_tensor, tensor_type=tensor.
+            tensor_type, tensor_shape=shape)
         qtype_dict[tensor_type_str] = qtype_dict.get(tensor_type_str, 0) + 1
     qsd = {k: v for k, v in state_dict.items() if is_quantized(v)}
     if len(qsd) > 0:
         max_key = max(qsd.keys(), key=lambda k: qsd[k].numel())
         state_dict[max_key].is_largest_weight = True
-    print("\nggml_sd_loader:")
+    print('\nggml_sd_loader:')
     for k, v in qtype_dict.items():
-        print(f" {k:30}{v:3}")
+        print(f' {k:30}{v:3}')
     if return_arch:
         return state_dict, arch_str
     return state_dict
-
-
 def tensor_swap(raw_sd, key_map):
     sd = {}
     for k, v in raw_sd.items():
@@ -480,289 +381,183 @@ def tensor_swap(raw_sd, key_map):
             k = k.replace(s, d)
         sd[k] = v
     return sd
-
-
 def pig_work(raw_sd):
     sd = {}
     for k, v in raw_sd.items():
         sd[k] = v
     return sd
-
-
 def llama_permute(raw_sd, n_head, n_head_kv):
     sd = {}
-    permute = (
-        lambda x, h: x.reshape(h, x.shape[0] // h // 2, 2, *x.shape[1:])
-        .swapaxes(1, 2)
-        .reshape(x.shape)
-    )
+    permute = lambda x, h: x.reshape(h, x.shape[0] // h // 2, 2, *x.shape[1:]
+        ).swapaxes(1, 2).reshape(x.shape)
     for k, v in raw_sd.items():
-        if k.endswith(("q_proj.weight", "q_proj.bias")):
+        if k.endswith(('q_proj.weight', 'q_proj.bias')):
             v.data = permute(v.data, n_head)
-        if k.endswith(("k_proj.weight", "k_proj.bias")):
+        if k.endswith(('k_proj.weight', 'k_proj.bias')):
             v.data = permute(v.data, n_head_kv)
         sd[k] = v
     return sd
-
-
 def load_gguf_clip(path):
     sd, arch = load_gguf_sd(path, return_arch=True)
-    if arch in {"t5", "t5encoder"}:
-        sd = tensor_swap(sd, arrays["T5"])
-    elif arch in {"llama"}:
-        sd = tensor_swap(sd, arrays["L3"])
+    if arch in {'t5', 't5encoder'}:
+        sd = tensor_swap(sd, arrays['T5'])
+    elif arch in {'llama'}:
+        sd = tensor_swap(sd, arrays['L3'])
         sd = llama_permute(sd, 32, 8)
-    elif arch in {"gemma2"}:
-        sd = tensor_swap(sd, arrays["G2"])
-    elif arch in {"pig"}:
+    elif arch in {'gemma2'}:
+        sd = tensor_swap(sd, arrays['G2'])
+    elif arch in {'pig'}:
         sd = pig_work(sd)
     else:
         pass
     return sd
-
-
 class LoaderGGUF:
     @classmethod
     def INPUT_TYPES(s):
-        gguf_names = [x for x in folder_paths.get_filename_list("model_gguf")]
-        return {"required": {"gguf_name": (gguf_names,)}}
-
-    RETURN_TYPES = ("MODEL",)
-    FUNCTION = "load_model"
-    CATEGORY = "gguf"
-    TITLE = "GGUF Loader"
-
-    def load_model(
-        self, gguf_name, dequant_dtype=None, patch_dtype=None, patch_on_device=None
-    ):
+        gguf_names = [x for x in folder_paths.get_filename_list('model_gguf')]
+        return {'required': {'gguf_name': (gguf_names,)}}
+    RETURN_TYPES = 'MODEL',
+    FUNCTION = 'load_model'
+    CATEGORY = 'gguf'
+    TITLE = 'GGUF Loader'
+    def load_model(self, gguf_name, dequant_dtype=None, patch_dtype=None,
+        patch_on_device=None):
         ops = GGMLOps()
-        if dequant_dtype in ("default", None):
+        if dequant_dtype in ('default', None):
             ops.Linear.dequant_dtype = None
-        elif dequant_dtype in ["target"]:
+        elif dequant_dtype in ['target']:
             ops.Linear.dequant_dtype = dequant_dtype
         else:
             ops.Linear.dequant_dtype = getattr(torch, dequant_dtype)
-        if patch_dtype in ("default", None):
+        if patch_dtype in ('default', None):
             ops.Linear.patch_dtype = None
-        elif patch_dtype in ["target"]:
+        elif patch_dtype in ['target']:
             ops.Linear.patch_dtype = patch_dtype
         else:
             ops.Linear.patch_dtype = getattr(torch, patch_dtype)
-        model_path = folder_paths.get_full_path("unet", gguf_name)
+        model_path = folder_paths.get_full_path('unet', gguf_name)
         sd = load_gguf_sd(model_path)
-        model = comfy.sd.load_diffusion_model_state_dict(
-            sd, model_options={"custom_operations": ops}
-        )
+        model = comfy.sd.load_diffusion_model_state_dict(sd, model_options=
+            {'custom_operations': ops})
         if model is None:
-            logging.error("ERROR UNSUPPORTED MODEL {}".format(model_path))
-            raise RuntimeError(
-                "ERROR: Could not detect model type of: {}".format(model_path)
-            )
+            logging.error('ERROR UNSUPPORTED MODEL {}'.format(model_path))
+            raise RuntimeError('ERROR: Could not detect model type of: {}'.
+                format(model_path))
         model = GGUFModelPatcher.clone(model)
         model.patch_on_device = patch_on_device
-        return (model,)
-
-
+        return model,
 class LoaderGGUFAdvanced(LoaderGGUF):
     @classmethod
     def INPUT_TYPES(s):
-        model_names = [x for x in folder_paths.get_filename_list("model_gguf")]
-        return {
-            "required": {
-                "gguf_name": (model_names,),
-                "dequant_dtype": (
-                    ["default", "target", "float32", "float16", "bfloat16"],
-                    {"default": "default"},
-                ),
-                "patch_dtype": (
-                    ["default", "target", "float32", "float16", "bfloat16"],
-                    {"default": "default"},
-                ),
-                "patch_on_device": ("BOOLEAN", {"default": False}),
-            }
-        }
-
-    TITLE = "GGUF Loader (Advanced)"
-
-
+        model_names = [x for x in folder_paths.get_filename_list('model_gguf')]
+        return {'required': {'gguf_name': (model_names,), 'dequant_dtype':
+            (['default', 'target', 'float32', 'float16', 'bfloat16'], {
+            'default': 'default'}), 'patch_dtype': (['default', 'target',
+            'float32', 'float16', 'bfloat16'], {'default': 'default'}),
+            'patch_on_device': ('BOOLEAN', {'default': False})}}
+    TITLE = 'GGUF Loader (Advanced)'
 def get_clip_type(name):
-    enum_name = arrays["CLIP_ENUM_MAP"].get(name, None)
+    enum_name = arrays['CLIP_ENUM_MAP'].get(name, None)
     if enum_name is None:
-        raise ValueError(f"Unknown CLIP model type {name}")
-    clip_type = getattr(comfy.sd.CLIPType, arrays["CLIP_ENUM_MAP"][name], None)
+        raise ValueError(f'Unknown CLIP model type {name}')
+    clip_type = getattr(comfy.sd.CLIPType, arrays['CLIP_ENUM_MAP'][name], None)
     if clip_type is None:
         raise ValueError(
-            f"Unsupported CLIP model type {name} (please upgrade your node)"
-        )
+            f'Unsupported CLIP model type {name} (please upgrade your node)')
     return clip_type
-
-
 class ClipLoaderGGUF:
     @classmethod
     def INPUT_TYPES(s):
-        return {
-            "required": {
-                "clip_name": (s.get_filename_list(),),
-                "type": (arrays["CLIP_1"],),
-            }
-        }
-
-    RETURN_TYPES = ("CLIP",)
-    FUNCTION = "load_clip"
-    CATEGORY = "gguf"
-    TITLE = "GGUF CLIP Loader"
-
+        return {'required': {'clip_name': (s.get_filename_list(),), 'type':
+            (arrays['CLIP_1'],)}}
+    RETURN_TYPES = 'CLIP',
+    FUNCTION = 'load_clip'
+    CATEGORY = 'gguf'
+    TITLE = 'GGUF CLIP Loader'
     @classmethod
     def get_filename_list(s):
         files = []
-        files += folder_paths.get_filename_list("clip")
-        files += folder_paths.get_filename_list("clip_gguf")
+        files += folder_paths.get_filename_list('clip')
+        files += folder_paths.get_filename_list('clip_gguf')
         return sorted(files)
-
     def load_data(self, ckpt_paths):
         clip_data = []
         for p in ckpt_paths:
-            if p.endswith(".gguf"):
+            if p.endswith('.gguf'):
                 sd = load_gguf_clip(p)
             else:
                 sd = comfy.utils.load_torch_file(p, safe_load=True)
             clip_data.append(sd)
         return clip_data
-
     def load_patcher(self, clip_paths, clip_type, clip_data):
-        clip = comfy.sd.load_text_encoder_state_dicts(
-            clip_type=clip_type,
-            state_dicts=clip_data,
-            model_options={
-                "custom_operations": GGMLOps,
-                "initial_device": comfy.model_management.text_encoder_offload_device(),
-            },
-            embedding_directory=folder_paths.get_folder_paths("embeddings"),
-        )
+        clip = comfy.sd.load_text_encoder_state_dicts(clip_type=clip_type,
+            state_dicts=clip_data, model_options={'custom_operations':
+            GGMLOps, 'initial_device': comfy.model_management.
+            text_encoder_offload_device()}, embedding_directory=
+            folder_paths.get_folder_paths('embeddings'))
         clip.patcher = GGUFModelPatcher.clone(clip.patcher)
         return clip
-
-    def load_clip(self, clip_name, type="stable_diffusion"):
-        clip_path = folder_paths.get_full_path("clip", clip_name)
-        return (
-            self.load_patcher(
-                [clip_path], get_clip_type(type), self.load_data([clip_path])
-            ),
-        )
-
-
+    def load_clip(self, clip_name, type='stable_diffusion'):
+        clip_path = folder_paths.get_full_path('clip', clip_name)
+        return self.load_patcher([clip_path], get_clip_type(type), self.
+            load_data([clip_path])),
 class DualClipLoaderGGUF(ClipLoaderGGUF):
     @classmethod
     def INPUT_TYPES(s):
-        file_options = (s.get_filename_list(),)
-        return {
-            "required": {
-                "clip_name1": file_options,
-                "clip_name2": file_options,
-                "type": (arrays["CLIP_2"],),
-            }
-        }
-
-    TITLE = "GGUF DualCLIP Loader"
-
+        file_options = s.get_filename_list(),
+        return {'required': {'clip_name1': file_options, 'clip_name2':
+            file_options, 'type': (arrays['CLIP_2'],)}}
+    TITLE = 'GGUF DualCLIP Loader'
     def load_clip(self, clip_name1, clip_name2, type):
-        clip_path1 = folder_paths.get_full_path("clip", clip_name1)
-        clip_path2 = folder_paths.get_full_path("clip", clip_name2)
+        clip_path1 = folder_paths.get_full_path('clip', clip_name1)
+        clip_path2 = folder_paths.get_full_path('clip', clip_name2)
         clip_paths = clip_path1, clip_path2
-        return (
-            self.load_patcher(
-                clip_paths, get_clip_type(type), self.load_data(clip_paths)
-            ),
-        )
-
-
+        return self.load_patcher(clip_paths, get_clip_type(type), self.
+            load_data(clip_paths)),
 class TripleClipLoaderGGUF(ClipLoaderGGUF):
     @classmethod
     def INPUT_TYPES(s):
-        file_options = (s.get_filename_list(),)
-        return {
-            "required": {
-                "clip_name1": file_options,
-                "clip_name2": file_options,
-                "clip_name3": file_options,
-            }
-        }
-
-    TITLE = "GGUF TripleCLIP Loader"
-
-    def load_clip(self, clip_name1, clip_name2, clip_name3, type="sd3"):
-        clip_path1 = folder_paths.get_full_path("clip", clip_name1)
-        clip_path2 = folder_paths.get_full_path("clip", clip_name2)
-        clip_path3 = folder_paths.get_full_path("clip", clip_name3)
+        file_options = s.get_filename_list(),
+        return {'required': {'clip_name1': file_options, 'clip_name2':
+            file_options, 'clip_name3': file_options}}
+    TITLE = 'GGUF TripleCLIP Loader'
+    def load_clip(self, clip_name1, clip_name2, clip_name3, type='sd3'):
+        clip_path1 = folder_paths.get_full_path('clip', clip_name1)
+        clip_path2 = folder_paths.get_full_path('clip', clip_name2)
+        clip_path3 = folder_paths.get_full_path('clip', clip_name3)
         clip_paths = clip_path1, clip_path2, clip_path3
-        return (
-            self.load_patcher(
-                clip_paths, get_clip_type(type), self.load_data(clip_paths)
-            ),
-        )
-
-
+        return self.load_patcher(clip_paths, get_clip_type(type), self.
+            load_data(clip_paths)),
 QUANTIZATION_THRESHOLD = 1024
 REARRANGE_THRESHOLD = 512
 MAX_TENSOR_NAME_LENGTH = 127
-
-
 class ModelTemplate:
-    arch = "invalid"
+    arch = 'invalid'
     keys_detect = []
     keys_banned = []
-
-
 class ModelFlux(ModelTemplate):
-    arch = "flux"
-    keys_detect = [
-        ("transformer_blocks.0.attn.norm_added_k.weight",),
-        ("double_blocks.0.img_attn.proj.weight",),
-    ]
-    keys_banned = ["transformer_blocks.0.attn.norm_added_k.weight"]
-
-
+    arch = 'flux'
+    keys_detect = [('transformer_blocks.0.attn.norm_added_k.weight',), (
+        'double_blocks.0.img_attn.proj.weight',)]
+    keys_banned = ['transformer_blocks.0.attn.norm_added_k.weight']
 class ModelSD3(ModelTemplate):
-    arch = "sd3"
-    keys_detect = [
-        ("transformer_blocks.0.attn.add_q_proj.weight",),
-        ("joint_blocks.0.x_block.attn.qkv.weight",),
-    ]
-    keys_banned = ["transformer_blocks.0.attn.add_q_proj.weight"]
-
-
+    arch = 'sd3'
+    keys_detect = [('transformer_blocks.0.attn.add_q_proj.weight',), (
+        'joint_blocks.0.x_block.attn.qkv.weight',)]
+    keys_banned = ['transformer_blocks.0.attn.add_q_proj.weight']
 class ModelSDXL(ModelTemplate):
-    arch = "sdxl"
-    keys_detect = [
-        ("down_blocks.0.downsamplers.0.conv.weight", "add_embedding.linear_1.weight"),
-        (
-            "input_blocks.3.0.op.weight",
-            "input_blocks.6.0.op.weight",
-            "output_blocks.2.2.conv.weight",
-            "output_blocks.5.2.conv.weight",
-        ),
-        ("label_emb.0.0.weight",),
-    ]
-
-
+    arch = 'sdxl'
+    keys_detect = [('down_blocks.0.downsamplers.0.conv.weight',
+        'add_embedding.linear_1.weight'), ('input_blocks.3.0.op.weight',
+        'input_blocks.6.0.op.weight', 'output_blocks.2.2.conv.weight',
+        'output_blocks.5.2.conv.weight'), ('label_emb.0.0.weight',)]
 class ModelSD1(ModelTemplate):
-    arch = "sd1"
-    keys_detect = [
-        ("down_blocks.0.downsamplers.0.conv.weight",),
-        (
-            "input_blocks.3.0.op.weight",
-            "input_blocks.6.0.op.weight",
-            "input_blocks.9.0.op.weight",
-            "output_blocks.2.1.conv.weight",
-            "output_blocks.5.2.conv.weight",
-            "output_blocks.8.2.conv.weight",
-        ),
-    ]
-
-
+    arch = 'sd1'
+    keys_detect = [('down_blocks.0.downsamplers.0.conv.weight',), (
+        'input_blocks.3.0.op.weight', 'input_blocks.6.0.op.weight',
+        'input_blocks.9.0.op.weight', 'output_blocks.2.1.conv.weight',
+        'output_blocks.5.2.conv.weight', 'output_blocks.8.2.conv.weight')]
 arch_list = [ModelFlux, ModelSD3, ModelSDXL, ModelSD1]
-
-
 def is_model_arch(model, state_dict):
     matched = False
     invalid = False
@@ -771,26 +566,20 @@ def is_model_arch(model, state_dict):
             matched = True
             invalid = any(key in state_dict for key in model.keys_banned)
             break
-    assert (
-        not invalid
-    ), "Model architecture not supported for alpha (please opt to use zero)"
+    assert not invalid, 'Model architecture not supported for alpha (please opt to use zero)'
     return matched
-
-
 def detect_arch(state_dict):
     model_arch = None
     for arch in arch_list:
         if is_model_arch(arch, state_dict):
             model_arch = arch
             break
-    assert model_arch is not None, "Unknown model architecture detected!"
+    assert model_arch is not None, 'Unknown model architecture detected!'
     return model_arch
-
-
 def load_state_dict(path):
     state_dict = load_file(path)
     prefix = None
-    for pfx in ["model.diffusion_model.", "model."]:
+    for pfx in ['model.diffusion_model.', 'model.']:
         if any([x.startswith(pfx) for x in state_dict.keys()]):
             prefix = pfx
             break
@@ -799,230 +588,171 @@ def load_state_dict(path):
         if prefix and prefix not in k:
             continue
         if prefix:
-            k = k.replace(prefix, "")
+            k = k.replace(prefix, '')
         sd[k] = v
     return sd
-
-
 def load_model(path):
     state_dict = load_state_dict(path)
     model_arch = detect_arch(state_dict)
-    print(f"* Architecture detected from input: {model_arch.arch}")
+    print(f'* Architecture detected from input: {model_arch.arch}')
     writer = GGUFWriter(path=None, arch=model_arch.arch)
     return writer, state_dict, model_arch
-
-
 def load_pig_state(path):
     pig_state = load_file(path)
     sd = {}
     for k, v in pig_state.items():
         sd[k] = v
     return sd
-
-
 def load_pig(path):
     state_dict = load_pig_state(path)
-    model_arch = arrays["TXT_ARCH_LIST"][0]
+    model_arch = arrays['TXT_ARCH_LIST'][0]
     writer = GGUFWriter(path=None, arch=model_arch)
     return writer, state_dict, model_arch
-
-
 def handle_tensors(args, writer, state_dict, model_arch):
-    name_lengths = tuple(
-        sorted(
-            ((key, len(key)) for key in state_dict.keys()),
-            key=lambda item: item[1],
-            reverse=True,
-        )
-    )
+    name_lengths = tuple(sorted(((key, len(key)) for key in state_dict.keys
+        ()), key=lambda item: item[1], reverse=True))
     if not name_lengths:
         return
     max_name_len = name_lengths[0][1]
     if max_name_len > MAX_TENSOR_NAME_LENGTH:
-        bad_list = ", ".join(
-            f"{key!r} ({namelen})"
-            for key, namelen in name_lengths
-            if namelen > MAX_TENSOR_NAME_LENGTH
-        )
+        bad_list = ', '.join(f'{key!r} ({namelen})' for key, namelen in
+            name_lengths if namelen > MAX_TENSOR_NAME_LENGTH)
         raise ValueError(
-            f"Can only handle tensor names up to {MAX_TENSOR_NAME_LENGTH} characters. Tensors exceeding the limit: {bad_list}"
-        )
+            f'Can only handle tensor names up to {MAX_TENSOR_NAME_LENGTH} characters. Tensors exceeding the limit: {bad_list}'
+            )
     for key, data in loading(state_dict.items()):
         old_dtype = data.dtype
         if data.dtype == torch.bfloat16:
             data = data.to(torch.float32).numpy()
-        elif data.dtype in [
-            getattr(torch, "float8_e4m3fn", "_invalid"),
-            getattr(torch, "float8_e5m2", "_invalid"),
-        ]:
+        elif data.dtype in [getattr(torch, 'float8_e4m3fn', '_invalid'),
+            getattr(torch, 'float8_e5m2', '_invalid')]:
             data = data.to(torch.float16).numpy()
         else:
             data = data.numpy()
         n_dims = len(data.shape)
         data_shape = data.shape
-        data_qtype = getattr(
-            GGMLQuantizationType, "BF16" if old_dtype == torch.bfloat16 else "F16"
-        )
+        data_qtype = getattr(GGMLQuantizationType, 'BF16' if old_dtype ==
+            torch.bfloat16 else 'F16')
         n_params = 1
         for dim_size in data_shape:
             n_params *= dim_size
-        blacklist = {
-            "time_embedding.",
-            "add_embedding.",
-            "time_in.",
-            "txt_in.",
-            "vector_in.",
-            "img_in.",
-            "guidance_in.",
-            "final_layer.",
-        }
+        blacklist = {'time_embedding.', 'add_embedding.', 'time_in.',
+            'txt_in.', 'vector_in.', 'img_in.', 'guidance_in.', 'final_layer.'}
         if old_dtype in (torch.float32, torch.bfloat16):
             if n_dims == 1:
                 data_qtype = GGMLQuantizationType.F32
             elif n_params <= QUANTIZATION_THRESHOLD:
                 data_qtype = GGMLQuantizationType.F32
-            elif ".weight" in key and any(x in key for x in blacklist):
+            elif '.weight' in key and any(x in key for x in blacklist):
                 data_qtype = GGMLQuantizationType.F32
         try:
             data = quantize(data, data_qtype)
         except (AttributeError, QuantError) as e:
-            loading.write(f"falling back to F16: {e}")
+            loading.write(f'falling back to F16: {e}')
             data_qtype = GGMLQuantizationType.F16
             data = quantize(data, data_qtype)
         new_name = key
         shape_str = f"{{{', '.join(str(n) for n in reversed(data.shape))}}}"
         loading.write(
             f"{f'%-{max_name_len + 4}s' % f'{new_name}'} {old_dtype} --> {data_qtype.name}, shape = {shape_str}"
-        )
+            )
         writer.add_tensor(new_name, data, raw_dtype=data_qtype)
-
-
-if "select_safetensors" not in folder_paths.folder_names_and_paths:
-    orig = folder_paths.folder_names_and_paths.get(
-        "diffusion_models",
-        folder_paths.folder_names_and_paths.get("checkpoints", [[], set()]),
-    )
-    folder_paths.folder_names_and_paths["select_safetensors"] = (
-        orig[0],
-        {".safetensors"},
-    )
-
-
+if 'select_safetensors' not in folder_paths.folder_names_and_paths:
+    orig = folder_paths.folder_names_and_paths.get('diffusion_models',
+        folder_paths.folder_names_and_paths.get('checkpoints', [[], set()]))
+    folder_paths.folder_names_and_paths['select_safetensors'] = orig[0], {
+        '.safetensors'}
 class GGUFSave:
     def __init__(self):
         self.output_dir = folder_paths.get_output_directory()
-
     @classmethod
     def INPUT_TYPES(s):
-        return {"required": {"select_safetensors": (s.get_filename_list(),)}}
-
+        return {'required': {'select_safetensors': (s.get_filename_list(),)}}
     RETURN_TYPES = ()
-    FUNCTION = "save"
+    FUNCTION = 'save'
     OUTPUT_NODE = True
-    CATEGORY = "gguf"
-    TITLE = "GGUF Convertor (Alpha)"
-
+    CATEGORY = 'gguf'
+    TITLE = 'GGUF Convertor (Alpha)'
     @classmethod
     def get_filename_list(s):
         files = []
-        files += folder_paths.get_filename_list("select_safetensors")
+        files += folder_paths.get_filename_list('select_safetensors')
         return sorted(files)
-
     def save(self, select_safetensors):
-        path = folder_paths.get_full_path("select_safetensors", select_safetensors)
+        path = folder_paths.get_full_path('select_safetensors',
+            select_safetensors)
         writer, state_dict, model_arch = load_model(path)
         writer.add_quantization_version(GGML_QUANT_VERSION)
         if next(iter(state_dict.values())).dtype == torch.bfloat16:
             output_path = (
-                f"{self.output_dir}/{os.path.splitext(select_safetensors)[0]}-bf16.gguf"
-            )
+                f'{self.output_dir}/{os.path.splitext(select_safetensors)[0]}-bf16.gguf'
+                )
             writer.add_file_type(LlamaFileType.MOSTLY_BF16)
         else:
             output_path = (
-                f"{self.output_dir}/{os.path.splitext(select_safetensors)[0]}-f16.gguf"
-            )
+                f'{self.output_dir}/{os.path.splitext(select_safetensors)[0]}-f16.gguf'
+                )
             writer.add_file_type(LlamaFileType.MOSTLY_F16)
         if os.path.isfile(output_path):
-            input("Output exists enter to continue or ctrl+c to abort!")
+            input('Output exists enter to continue or ctrl+c to abort!')
         handle_tensors(output_path, writer, state_dict, model_arch)
         writer.write_header_to_file(path=output_path)
         writer.write_kv_data_to_file()
         writer.write_tensors_to_file(progress=True)
         writer.close()
         return {}
-
-
 class GGUFRun:
     def __init__(self):
         self.output_dir = folder_paths.get_output_directory()
-
     @classmethod
     def INPUT_TYPES(s):
-        return {"required": {"select_safetensors": (s.get_filename_list(),)}}
-
+        return {'required': {'select_safetensors': (s.get_filename_list(),)}}
     RETURN_TYPES = ()
-    FUNCTION = "run"
+    FUNCTION = 'run'
     OUTPUT_NODE = True
-    CATEGORY = "gguf"
-    TITLE = "GGUF Convertor (Zero)"
-
+    CATEGORY = 'gguf'
+    TITLE = 'GGUF Convertor (Zero)'
     @classmethod
     def get_filename_list(s):
         files = []
-        files += folder_paths.get_filename_list("select_safetensors")
+        files += folder_paths.get_filename_list('select_safetensors')
         return sorted(files)
-
     def run(self, select_safetensors):
-        path = folder_paths.get_full_path("select_safetensors", select_safetensors)
+        path = folder_paths.get_full_path('select_safetensors',
+            select_safetensors)
         writer, state_dict, model_arch = load_pig(path)
         writer.add_quantization_version(GGML_QUANT_VERSION)
         if next(iter(state_dict.values())).dtype == torch.bfloat16:
             output_path = (
-                f"{self.output_dir}/{os.path.splitext(select_safetensors)[0]}-bf16.gguf"
-            )
+                f'{self.output_dir}/{os.path.splitext(select_safetensors)[0]}-bf16.gguf'
+                )
             writer.add_file_type(LlamaFileType.MOSTLY_BF16)
         else:
             output_path = (
-                f"{self.output_dir}/{os.path.splitext(select_safetensors)[0]}-f16.gguf"
-            )
+                f'{self.output_dir}/{os.path.splitext(select_safetensors)[0]}-f16.gguf'
+                )
             writer.add_file_type(LlamaFileType.MOSTLY_F16)
         if os.path.isfile(output_path):
-            input("Output exists enter to continue or ctrl+c to abort!")
+            input('Output exists enter to continue or ctrl+c to abort!')
         handle_tensors(output_path, writer, state_dict, model_arch)
         writer.write_header_to_file(path=output_path)
         writer.write_kv_data_to_file()
         writer.write_tensors_to_file(progress=True)
         writer.close()
         return {}
-
-
 def quantize_to_fp8(tensor):
-    tensor = tensor.to(torch.float32)  # Make sure we're working with float32
-    dtype_to = torch.float8_e4m3fn
-    inf = torch.finfo(dtype_to)
-    max_value = 416.0  # Target value to scale to
-
-    # Only process 2D weight matrices
-    if tensor.dim() != 2:
-        return tensor, torch.tensor(1.0, dtype=torch.float32)
-
-    # Calculate scaling factor
-    max_abs = torch.max(torch.abs(tensor))
-    if max_abs == 0:
-        scale_factor = 1.0
-    else:
-        scale_factor = max_abs / max_value  # Scale factor (divisor)
-
-    # Scale and convert to FP8 with clipping
-    scaled_tensor = (tensor / scale_factor).clip(min=inf.min, max=inf.max).to(dtype_to)
-
-    return scaled_tensor, scale_factor.to(torch.float32)
-
-
+    if tensor.dtype != torch.bfloat16:
+        raise ValueError('Input tensor must be in BF16 format.')
+    tensor = tensor.to(torch.float16)
+    fp8_max = 240.0
+    fp8_min = -fp8_max
+    clamped_tensor = tensor.clamp(min=fp8_min, max=fp8_max)
+    scale = fp8_max / torch.max(torch.abs(clamped_tensor))
+    quantized_tensor = torch.round(clamped_tensor * scale) / scale
+    return quantized_tensor.to(torch.float8_e4m3fn), scale.to(torch.float32)
 class TENSORCut:
     def __init__(self):
         self.output_dir = folder_paths.get_output_directory()
-
     @classmethod
     def INPUT_TYPES(s):
         model_folders = [
@@ -1060,158 +790,107 @@ class TENSORCut:
             for file in os.listdir(output_diffusion_path):
                 if file.endswith(".safetensors"):
                     all_files.append(f"output_diffusion/{file}")
-
             # Register this path for later use in the cut function
             if "output_diffusion" not in folder_paths.folder_names_and_paths:
                 folder_paths.folder_names_and_paths["output_diffusion"] = ([output_diffusion_path], {".safetensors"})
 
         return {"required": {"model_file": (sorted(all_files),)}}
-
     RETURN_TYPES = ()
-    FUNCTION = "cut"
+    FUNCTION = 'cut'
     OUTPUT_NODE = True
-    CATEGORY = "gguf"
-    TITLE = "TENSOR Cutter (Beta)"
-
-    def cut(self, model_file):
-        folder, filename = model_file.split("/", 1)
-        input_file = folder_paths.get_full_path(folder, filename)
-
-        if input_file is None:
-            raise ValueError(f"Could not find model file {filename} in folder {folder}")
-
+    CATEGORY = 'gguf'
+    TITLE = 'TENSOR Cutter (Beta)'
+    def cut(self, select_safetensors):
+        input_file = folder_paths.get_full_path('select_safetensors',
+            select_safetensors)
         output_file = (
-            f"{self.output_dir}/{os.path.splitext(filename)[0]}_fp8_e4m3fn.safetensors"
-        )
-
+            f'{self.output_dir}/{os.path.splitext(select_safetensors)[0]}_fp8_e4m3fn.safetensors'
+            )
         data = load_file(input_file)
         quantized_data = {}
-
-        # Blacklist of weights that shouldn't be scaled
-        blacklist = [
-            "encoder.embed_tokens.weight",
-            "encoder.block.0.layer.0.SelfAttention.relative_attention_bias.weight",
-            "shared.weight",
-            "lm_head.weight",
-            "model.embed_tokens.weight",
-        ]
-
-        print("Starting quantization process...")
-        for key, tensor in loading(
-            data.items(), desc="Quantizing tensors", unit="tensor"
-        ):
-            # Only process weight tensors
-            if key.endswith(".weight") and key not in blacklist:
-                tensor = tensor.to(device="cuda")
-                if tensor.dim() == 2:
-                    quantized_tensor, scale = quantize_to_fp8(tensor)
-                    quantized_data[key] = quantized_tensor.cpu()
-                    quantized_data[f"{key[:-len('.weight')]}.scale_weight"] = (
-                        scale.cpu()
-                    )
-                else:
-                    # Keep non-2D weights as-is
-                    quantized_data[key] = tensor.cpu()
-            else:
-                # Keep non-weight tensors as-is
-                quantized_data[key] = tensor.cpu()
-
-        # Add the marker tensor for FP8
-        quantized_data["scaled_fp8"] = torch.tensor([], dtype=torch.float8_e4m3fn).cpu()
+        print('Starting quantization process...')
+        for key, tensor in loading(data.items(), desc='Quantizing tensors',
+            unit='tensor'):
+            tensor = tensor.to(dtype=torch.bfloat16, device='cuda')
+            quantized_tensor, scale = quantize_to_fp8(tensor)
+            quantized_data[key] = quantized_tensor.cpu()
+            quantized_data[f'{key}.scale_weight'] = scale.cpu()
+        quantized_data['scaled_fp8'] = torch.tensor([], torch.float8_e4m3fn).cpu()
         save_file(quantized_data, output_file)
-        print(f"Quantized safetensors saved to {output_file}.")
+        print(f'Quantized safetensors saved to {output_file}.')
         return {}
-
-
 def load_gguf_and_extract_metadata(gguf_path):
     reader = gr.GGUFReader(gguf_path)
     tensors_metadata = []
     for tensor in reader.tensors:
-        tensor_metadata = {
-            "name": tensor.name,
-            "shape": tuple(tensor.shape.tolist()),
-            "n_elements": tensor.n_elements,
-            "n_bytes": tensor.n_bytes,
-            "data_offset": tensor.data_offset,
-            "type": tensor.tensor_type,
-        }
+        tensor_metadata = {'name': tensor.name, 'shape': tuple(tensor.shape
+            .tolist()), 'n_elements': tensor.n_elements, 'n_bytes': tensor.
+            n_bytes, 'data_offset': tensor.data_offset, 'type': tensor.
+            tensor_type}
         tensors_metadata.append(tensor_metadata)
     return reader, tensors_metadata
-
-
 def convert_gguf_to_safetensors(gguf_path, output_path, use_bf16):
     reader, tensors_metadata = load_gguf_and_extract_metadata(gguf_path)
-    print(f"Extracted {len(tensors_metadata)} tensors from GGUF file")
+    print(f'Extracted {len(tensors_metadata)} tensors from GGUF file')
     tensors_dict: dict[str, torch.Tensor] = {}
-    for i, tensor_info in enumerate(
-        loading(tensors_metadata, desc="Converting tensors", unit="tensor")
-    ):
-        tensor_name = tensor_info["name"]
+    for i, tensor_info in enumerate(loading(tensors_metadata, desc=
+        'Converting tensors', unit='tensor')):
+        tensor_name = tensor_info['name']
         tensor_data = reader.get_tensor(i)
         weights = dequantize(tensor_data.data, tensor_data.tensor_type).copy()
         try:
             if use_bf16:
-                weights_tensor = torch.from_numpy(weights).to(dtype=torch.float32)
+                weights_tensor = torch.from_numpy(weights).to(dtype=torch.
+                    float32)
                 weights_tensor = weights_tensor.to(torch.bfloat16)
             else:
-                weights_tensor = torch.from_numpy(weights).to(dtype=torch.float16)
+                weights_tensor = torch.from_numpy(weights).to(dtype=torch.
+                    float16)
             weights_hf = weights_tensor
         except Exception as e:
-            print(f"Error during BF16 conversion for tensor '{tensor_name}': {e}")
-            weights_tensor = torch.from_numpy(weights.astype(numpy.float32)).to(
-                torch.float16
-            )
+            print(
+                f"Error during BF16 conversion for tensor '{tensor_name}': {e}"
+                )
+            weights_tensor = torch.from_numpy(weights.astype(numpy.float32)
+                ).to(torch.float16)
             weights_hf = weights_tensor
         tensors_dict[tensor_name] = weights_hf
     metadata = {key: str(reader.get_field(key)) for key in reader.fields}
     save_file(tensors_dict, output_path, metadata=metadata)
-    print("Conversion complete!")
-
-
-if "select_gguf" not in folder_paths.folder_names_and_paths:
-    orig = folder_paths.folder_names_and_paths.get(
-        "diffusion_models", folder_paths.folder_names_and_paths.get("unet", [[], set()])
-    )
-    folder_paths.folder_names_and_paths["select_gguf"] = orig[0], {".gguf"}
-
-
+    print('Conversion complete!')
+if 'select_gguf' not in folder_paths.folder_names_and_paths:
+    orig = folder_paths.folder_names_and_paths.get('diffusion_models',
+        folder_paths.folder_names_and_paths.get('unet', [[], set()]))
+    folder_paths.folder_names_and_paths['select_gguf'] = orig[0], {'.gguf'}
 class GGUFUndo:
     def __init__(self):
         self.output_dir = folder_paths.get_output_directory()
-
     @classmethod
     def INPUT_TYPES(s):
-        return {"required": {"select_gguf": (s.get_filename_list(),)}}
-
+        return {'required': {'select_gguf': (s.get_filename_list(),)}}
     RETURN_TYPES = ()
-    FUNCTION = "undo"
+    FUNCTION = 'undo'
     OUTPUT_NODE = True
-    CATEGORY = "gguf"
-    TITLE = "GGUF Convertor (Reverse)"
-
+    CATEGORY = 'gguf'
+    TITLE = 'GGUF Convertor (Reverse)'
     @classmethod
     def get_filename_list(s):
         files = []
-        files += folder_paths.get_filename_list("select_gguf")
+        files += folder_paths.get_filename_list('select_gguf')
         return sorted(files)
-
     def undo(self, select_gguf):
-        in_file = folder_paths.get_full_path("select_gguf", select_gguf)
-        out_file = (
-            f"{self.output_dir}/{os.path.splitext(select_gguf)[0]}_fp16.safetensors"
-        )
+        in_file = folder_paths.get_full_path('select_gguf', select_gguf)
+        out_file = (f'{self.output_dir}/{os.path.splitext(select_gguf)[0]}_fp16.safetensors')
         use_bf16 = False
         convert_gguf_to_safetensors(in_file, out_file, use_bf16)
         return {}
-
-
 class VaeGGUF:
     @staticmethod
     def vae_list():
         vaes = []
-        vaes += folder_paths.get_filename_list("vae")
-        vaes += folder_paths.get_filename_list("vae_gguf")
-        approx_vaes = folder_paths.get_filename_list("vae_approx")
+        vaes += folder_paths.get_filename_list('vae')
+        vaes += folder_paths.get_filename_list('vae_gguf')
+        approx_vaes = folder_paths.get_filename_list('vae_approx')
         sdxl_taesd_enc = False
         sdxl_taesd_dec = False
         sd1_taesd_enc = False
@@ -1221,88 +900,78 @@ class VaeGGUF:
         f1_taesd_enc = False
         f1_taesd_dec = False
         for v in approx_vaes:
-            if v.startswith("taesd_decoder."):
+            if v.startswith('taesd_decoder.'):
                 sd1_taesd_dec = True
-            elif v.startswith("taesd_encoder."):
+            elif v.startswith('taesd_encoder.'):
                 sd1_taesd_enc = True
-            elif v.startswith("taesdxl_decoder."):
+            elif v.startswith('taesdxl_decoder.'):
                 sdxl_taesd_dec = True
-            elif v.startswith("taesdxl_encoder."):
+            elif v.startswith('taesdxl_encoder.'):
                 sdxl_taesd_enc = True
-            elif v.startswith("taesd3_decoder."):
+            elif v.startswith('taesd3_decoder.'):
                 sd3_taesd_dec = True
-            elif v.startswith("taesd3_encoder."):
+            elif v.startswith('taesd3_encoder.'):
                 sd3_taesd_enc = True
-            elif v.startswith("taef1_encoder."):
+            elif v.startswith('taef1_encoder.'):
                 f1_taesd_dec = True
-            elif v.startswith("taef1_decoder."):
+            elif v.startswith('taef1_decoder.'):
                 f1_taesd_enc = True
         if sd1_taesd_dec and sd1_taesd_enc:
-            vaes.append("taesd")
+            vaes.append('taesd')
         if sdxl_taesd_dec and sdxl_taesd_enc:
-            vaes.append("taesdxl")
+            vaes.append('taesdxl')
         if sd3_taesd_dec and sd3_taesd_enc:
-            vaes.append("taesd3")
+            vaes.append('taesd3')
         if f1_taesd_dec and f1_taesd_enc:
-            vaes.append("taef1")
+            vaes.append('taef1')
         return vaes
-
     @staticmethod
     def load_taesd(name):
         sd = {}
-        approx_vaes = folder_paths.get_filename_list("vae_approx")
-        encoder = next(
-            filter(lambda a: a.startswith("{}_encoder.".format(name)), approx_vaes)
-        )
-        decoder = next(
-            filter(lambda a: a.startswith("{}_decoder.".format(name)), approx_vaes)
-        )
-        enc = comfy.utils.load_torch_file(
-            folder_paths.get_full_path_or_raise("vae_approx", encoder)
-        )
+        approx_vaes = folder_paths.get_filename_list('vae_approx')
+        encoder = next(filter(lambda a: a.startswith('{}_encoder.'.format(
+            name)), approx_vaes))
+        decoder = next(filter(lambda a: a.startswith('{}_decoder.'.format(
+            name)), approx_vaes))
+        enc = comfy.utils.load_torch_file(folder_paths.
+            get_full_path_or_raise('vae_approx', encoder))
         for k in enc:
-            sd["taesd_encoder.{}".format(k)] = enc[k]
-        dec = comfy.utils.load_torch_file(
-            folder_paths.get_full_path_or_raise("vae_approx", decoder)
-        )
+            sd['taesd_encoder.{}'.format(k)] = enc[k]
+        dec = comfy.utils.load_torch_file(folder_paths.
+            get_full_path_or_raise('vae_approx', decoder))
         for k in dec:
-            sd["taesd_decoder.{}".format(k)] = dec[k]
-        if name == "taesd":
-            sd["vae_scale"] = torch.tensor(0.18215)
-            sd["vae_shift"] = torch.tensor(0.0)
-        elif name == "taesdxl":
-            sd["vae_scale"] = torch.tensor(0.13025)
-            sd["vae_shift"] = torch.tensor(0.0)
-        elif name == "taesd3":
-            sd["vae_scale"] = torch.tensor(1.5305)
-            sd["vae_shift"] = torch.tensor(0.0609)
-        elif name == "taef1":
-            sd["vae_scale"] = torch.tensor(0.3611)
-            sd["vae_shift"] = torch.tensor(0.1159)
+            sd['taesd_decoder.{}'.format(k)] = dec[k]
+        if name == 'taesd':
+            sd['vae_scale'] = torch.tensor(0.18215)
+            sd['vae_shift'] = torch.tensor(0.0)
+        elif name == 'taesdxl':
+            sd['vae_scale'] = torch.tensor(0.13025)
+            sd['vae_shift'] = torch.tensor(0.0)
+        elif name == 'taesd3':
+            sd['vae_scale'] = torch.tensor(1.5305)
+            sd['vae_shift'] = torch.tensor(0.0609)
+        elif name == 'taef1':
+            sd['vae_scale'] = torch.tensor(0.3611)
+            sd['vae_shift'] = torch.tensor(0.1159)
         return sd
-
     @classmethod
     def INPUT_TYPES(s):
-        return {"required": {"vae_name": (s.vae_list(),)}}
-
-    RETURN_TYPES = ("VAE",)
-    FUNCTION = "load_vae"
-    CATEGORY = "gguf"
-    TITLE = "GGUF VAE Loader"
-
+        return {'required': {'vae_name': (s.vae_list(),)}}
+    RETURN_TYPES = 'VAE',
+    FUNCTION = 'load_vae'
+    CATEGORY = 'gguf'
+    TITLE = 'GGUF VAE Loader'
     def load_vae(self, vae_name):
-        if vae_name.endswith(".gguf"):
-            vae_path = folder_paths.get_full_path_or_raise("vae_gguf", vae_name)
+        if vae_name.endswith('.gguf'):
+            vae_path = folder_paths.get_full_path_or_raise('vae_gguf', vae_name)
             sd = load_gguf_clip(vae_path)
-        elif vae_name in ["taesd", "taesdxl", "taesd3", "taef1"]:
+        elif vae_name in ['taesd', 'taesdxl', 'taesd3', 'taef1']:
             sd = self.load_taesd(vae_name)
         else:
-            vae_path = folder_paths.get_full_path_or_raise("vae", vae_name)
+            vae_path = folder_paths.get_full_path_or_raise('vae', vae_name)
             sd = comfy.utils.load_torch_file(vae_path)
         vae = comfy.sd.VAE(sd=sd)
-        return (vae,)
-
-
+        return vae,
 NODE_CLASS_MAPPINGS = {
     "LoaderGGUF": LoaderGGUF,
     "ClipLoaderGGUF": ClipLoaderGGUF,
