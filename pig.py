@@ -1071,7 +1071,7 @@ class TENSORCut:
             quantized_data[key] = quantized_tensor.cpu()
             quantized_data[f"{key}.scale_weight"] = scale.cpu()
 
-        quantized_data["scaled_fp8"] = torch.tensor([], torch.float8_e4m3fn).cpu()
+        quantized_data["scaled_fp8"] = torch.tensor([], dtype=torch.float8_e4m3fn).cpu()
         save_file(quantized_data, output_file)
         print(f"Quantized safetensors saved to {output_file}.")
         return {}
