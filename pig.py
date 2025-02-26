@@ -1046,11 +1046,24 @@ class TENSORCut:
 
         # Get all safetensors files from all available folders
         all_files = []
+        # First add files from standard model folders
         for folder in available_folders:
             files = folder_paths.get_filename_list(folder)
             files = [f for f in files if f.endswith(".safetensors")]
             for file in files:
                 all_files.append(f"{folder}/{file}")
+
+        # Add files from output directory's diffusion_models folder if it exists
+        output_diffusion_path = os.path.join(folder_paths.get_output_directory(), "diffusion_models")
+        if os.path.exists(output_diffusion_path) and os.path.isdir(output_diffusion_path):
+            # Get files directly from the directory since it might not be in folder_paths
+            for file in os.listdir(output_diffusion_path):
+                if file.endswith(".safetensors"):
+                    all_files.append(f"output_diffusion/{file}")
+
+            # Register this path for later use in the cut function
+            if "output_diffusion" not in folder_paths.folder_names_and_paths:
+                folder_paths.folder_names_and_paths["output_diffusion"] = ([output_diffusion_path], {".safetensors"})
 
         return {"required": {"model_file": (sorted(all_files),)}}
 
