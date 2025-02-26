@@ -749,7 +749,7 @@ def quantize_to_fp8(tensor):
     clamped_tensor = tensor.clamp(min=fp8_min, max=fp8_max)
     scale = fp8_max / torch.max(torch.abs(clamped_tensor))
     quantized_tensor = torch.round(clamped_tensor * scale) / scale
-    return quantized_tensor.to(torch.float8_e4m3fn), scale.to(torch.float32)
+    return quantized_tensor.to(torch.float8_e4m3fn)
 class TENSORCut:
     def __init__(self):
         self.output_dir = folder_paths.get_output_directory()
@@ -814,10 +814,8 @@ class TENSORCut:
         for key, tensor in loading(data.items(), desc='Quantizing tensors',
             unit='tensor'):
             tensor = tensor.to(dtype=torch.bfloat16, device='cuda')
-            quantized_tensor, scale = quantize_to_fp8(tensor)
+            quantized_tensor = quantize_to_fp8(tensor)
             quantized_data[key] = quantized_tensor.cpu()
-            quantized_data[f'{key}.scale_weight'] = scale.cpu()
-        quantized_data['scaled_fp8'] = torch.tensor([], torch.float8_e4m3fn).cpu()
         save_file(quantized_data, output_file)
         print(f'Quantized safetensors saved to {output_file}.')
         return {}
