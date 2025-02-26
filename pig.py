@@ -997,15 +997,26 @@ class GGUFRun:
 
 
 def quantize_to_fp8(tensor):
-    if tensor.dtype != torch.bfloat16:
-        raise ValueError("Input tensor must be in BF16 format.")
-    tensor = tensor.to(torch.float16)
-    fp8_max = 240.0
-    fp8_min = -fp8_max
-    clamped_tensor = tensor.clamp(min=fp8_min, max=fp8_max)
-    scale = fp8_max / torch.max(torch.abs(clamped_tensor))
-    quantized_tensor = torch.round(clamped_tensor * scale) / scale
-    return quantized_tensor.to(torch.float8_e4m3fn), scale.to(torch.float32)
+    tensor = tensor.to(torch.float32)  # Make sure we're working with float32
+    dtype_to = torch.float8_e4m3fn
+    inf = torch.finfo(dtype_to)
+    max_value = 416.0  # Target value to scale to
+
+    # Only process 2D weight matrices
+    if tensor.dim() != 2:
+        return tensor, torch.tensor(1.0, dtype=torch.float32)
+
+    # Calculate scaling factor
+    max_abs = torch.max(torch.abs(tensor))
+    if max_abs == 0:
+        scale_factor = 1.0
+    else:
+        scale_factor = max_abs / max_value  # Scale factor (divisor)
+
+    # Scale and convert to FP8 with clipping
+    scaled_tensor = (tensor / scale_factor).clip(min=inf.min, max=inf.max).to(dtype_to)
+
+    return scaled_tensor, scale_factor.to(torch.float32)
 
 
 class TENSORCut:
@@ -1062,15 +1073,37 @@ class TENSORCut:
 
         data = load_file(input_file)
         quantized_data = {}
+
+        # Blacklist of weights that shouldn't be scaled
+        blacklist = [
+            "encoder.embed_tokens.weight",
+            "encoder.block.0.layer.0.SelfAttention.relative_attention_bias.weight",
+            "shared.weight",
+            "lm_head.weight",
+            "model.embed_tokens.weight",
+        ]
+
         print("Starting quantization process...")
         for key, tensor in loading(
             data.items(), desc="Quantizing tensors", unit="tensor"
         ):
-            tensor = tensor.to(dtype=torch.bfloat16, device="cuda")
-            quantized_tensor, scale = quantize_to_fp8(tensor)
-            quantized_data[key] = quantized_tensor.cpu()
-            quantized_data[f"{key}.scale_weight"] = scale.cpu()
+            # Only process weight tensors
+            if key.endswith(".weight") and key not in blacklist:
+                tensor = tensor.to(device="cuda")
+                if tensor.dim() == 2:
+                    quantized_tensor, scale = quantize_to_fp8(tensor)
+                    quantized_data[key] = quantized_tensor.cpu()
+                    quantized_data[f"{key[:-len('.weight')]}.scale_weight"] = (
+                        scale.cpu()
+                    )
+                else:
+                    # Keep non-2D weights as-is
+                    quantized_data[key] = tensor.cpu()
+            else:
+                # Keep non-weight tensors as-is
+                quantized_data[key] = tensor.cpu()
 
+        # Add the marker tensor for FP8
         quantized_data["scaled_fp8"] = torch.tensor([], dtype=torch.float8_e4m3fn).cpu()
         save_file(quantized_data, output_file)
         print(f"Quantized safetensors saved to {output_file}.")
