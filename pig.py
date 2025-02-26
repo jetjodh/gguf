@@ -1014,20 +1014,34 @@ class TENSORCut:
 
     @classmethod
     def INPUT_TYPES(s):
-        model_folders = ["checkpoints", "diffusion_models", "select_safetensors"]
-        # Filter out folders that don't exist in ComfyUI's configuration
+        model_folders = [
+            "checkpoints",
+            "diffusion_models",
+            "loras",
+            "vae",
+            "text_encoders",
+            "clip",
+            "clip_vision",
+            "style_models",
+            "embeddings",
+            "unet",
+        ]
+        # Include only folders that exist in ComfyUI's configuration
         available_folders = [
             folder
             for folder in model_folders
             if folder in folder_paths.folder_names_and_paths
         ]
 
-        return {
-            "required": {
-                "model_folder": (available_folders, {"default": "select_safetensors"}),
-                "model_file": ([], {"dynamic": True}),
-            }
-        }
+        # Get all safetensors files from all available folders
+        all_files = []
+        for folder in available_folders:
+            files = folder_paths.get_filename_list(folder)
+            files = [f for f in files if f.endswith(".safetensors")]
+            for file in files:
+                all_files.append(f"{folder}/{file}")
+
+        return {"required": {"model_file": (sorted(all_files),)}}
 
     RETURN_TYPES = ()
     FUNCTION = "cut"
@@ -1035,18 +1049,16 @@ class TENSORCut:
     CATEGORY = "gguf"
     TITLE = "TENSOR Cutter (Beta)"
 
-    @classmethod
-    def VALIDATE_INPUTS(s, model_folder, model_file):
-        return True
+    def cut(self, model_file):
+        folder, filename = model_file.split("/", 1)
+        input_file = folder_paths.get_full_path(folder, filename)
 
-    def cut(self, model_folder, model_file):
-        input_file = folder_paths.get_full_path(model_folder, model_file)
         if input_file is None:
-            raise ValueError(
-                f"Could not find model file {model_file} in folder {model_folder}"
-            )
+            raise ValueError(f"Could not find model file {filename} in folder {folder}")
 
-        output_file = f"{self.output_dir}/{os.path.splitext(model_file)[0]}_fp8_e4m3fn.safetensors"
+        output_file = (
+            f"{self.output_dir}/{os.path.splitext(filename)[0]}_fp8_e4m3fn.safetensors"
+        )
 
         data = load_file(input_file)
         quantized_data = {}
@@ -1063,29 +1075,6 @@ class TENSORCut:
         save_file(quantized_data, output_file)
         print(f"Quantized safetensors saved to {output_file}.")
         return {}
-
-    @classmethod
-    def IS_CHANGED(s, model_folder, model_file):
-        """Return a unique value representing the current state of the inputs."""
-        return f"{model_folder}_{model_file}"
-
-    @classmethod
-    def get_model_files(s, model_folder):
-        """Get all safetensors files from the specified folder."""
-        if model_folder not in folder_paths.folder_names_and_paths:
-            return []
-
-        files = folder_paths.get_filename_list(model_folder)
-        # Filter for safetensors files only
-        safetensors_files = [f for f in files if f.endswith(".safetensors")]
-        return sorted(safetensors_files)
-
-    @classmethod
-    def update_model_file(s, **kwargs):
-        """Returns the list of available model files for the selected folder."""
-        model_folder = kwargs.get("model_folder", "select_safetensors")
-        files = s.get_model_files(model_folder)
-        return {"model_file": files}
 
 
 def load_gguf_and_extract_metadata(gguf_path):
