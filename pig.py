@@ -800,12 +800,14 @@ class TENSORCut:
     OUTPUT_NODE = True
     CATEGORY = 'gguf'
     TITLE = 'TENSOR Cutter (Beta)'
-    def cut(self, select_safetensors):
-        input_file = folder_paths.get_full_path('select_safetensors',
-            select_safetensors)
+    def cut(self, model_file):
+        folder, filename = model_file.split("/", 1)
+        input_file = folder_paths.get_full_path(folder, filename)
+        if input_file is None:
+            raise ValueError(f"Could not find model file {filename} in folder {folder}")
         output_file = (
-            f'{self.output_dir}/{os.path.splitext(select_safetensors)[0]}_fp8_e4m3fn.safetensors'
-            )
+            f'{self.output_dir}/{os.path.splitext(filename)[0]}_fp8_e4m3fn.safetensors'
+        )
         data = load_file(input_file)
         quantized_data = {}
         print('Starting quantization process...')
