@@ -126,13 +126,13 @@ class GGMLTensor(torch.Tensor):
         if not hasattr(self, 'tensor_shape'):
             self.tensor_shape = self.size()
         return self.tensor_shape
-if hasattr(torch, "compiler") and hasattr(torch.compiler, "disable"):
-    torch_compiler_disable = torch.compiler.disable
-else:
-    def torch_compiler_disable(*args, **kwargs):
-        def noop(x):
-            return x
-        return noop
+# if hasattr(torch, "compiler") and hasattr(torch.compiler, "disable"):
+#     torch_compiler_disable = torch.compiler.disable
+# else:
+#     def torch_compiler_disable(*args, **kwargs):
+#         def noop(x):
+#             return x
+#         return noop
 class GGMLLayer(torch.nn.Module):
     comfy_cast_weights = True
     dequant_dtype = None
@@ -209,7 +209,7 @@ class GGMLLayer(torch.nn.Module):
                     self.patch_dtype)
                 weight = function(patch_list, weight, key, patch_dtype)
         return weight
-    @torch_compiler_disable()
+    # @torch_compiler_disable()
     def cast_bias_weight(s, input=None, dtype=None, device=None, bias_dtype
         =None):
         if input is not None:
