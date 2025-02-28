@@ -74,7 +74,7 @@ for the demo workflow (picture) above, you could get the test model gguf [here](
 
 #### convertor (convert safetensors to gguf)
 - drag safetensors file(s) to diffusion_models folder (./ComfyUI/models/diffusion_models)
-- choose the third last option from the gguf menu: `GGUF Convertor (Alpha)`
+- choose the fourth last option from the gguf menu: `GGUF Convertor (Alpha)`
 - select your safetensors model inside the box; don't need to connect anything; it works independently also
 - click `Queue` (run); then you can simply check the processing progress from console
 - when it was done; the converted gguf file will be saved to the output folder (./ComfyUI/output)
@@ -95,7 +95,7 @@ for the demo workflow (picture) above, you could get the test model gguf [here](
 ### convertor ZERO
 #### new flagship feature: convert safetensors to gguf without any restriction; no unsupported models anymore; never
 - drag safetensors file(s) to diffusion_models folder (./ComfyUI/models/diffusion_models)
-- choose the second last option from the gguf menu: `GGUF Convertor (Zero)`
+- choose the third last option from the gguf menu: `GGUF Convertor (Zero)`
 - select your safetensors model inside the box; don't need to connect anything; it works independently!
 - click `Queue` (run); then you can simply check the processing progress from console
 - when it was done; the converted gguf file will be saved to the output folder (./ComfyUI/output)
