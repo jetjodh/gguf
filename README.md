@@ -56,6 +56,13 @@ for the demo workflow (picture) above, you could get the test model gguf [here](
 - design your own prompt; or
 - generate a random prompt/descriptor by the [simulator](https://prompt.calcuis.us) (though it might not be applicable for all)
 
+#### booster (new feature: boost safetensors to fp32)🐷
+- drag safetensors file(s) to diffusion_models folder (./ComfyUI/models/diffusion_models)
+- choose the last option from the gguf menu: `TENSOR Booster`
+- select your safetensors model inside the box; don't need to connect anything; it works independently
+- click `Queue` (run); then you can simply check the processing progress from console
+- when it was done; the quantized/boosted safetensors file will be saved to the output folder (./ComfyUI/output)
+
 #### cutter (cut safetensors in half - bf16 to fp8)
 - drag safetensors file(s) to diffusion_models folder (./ComfyUI/models/diffusion_models)
 - choose the second last option from the gguf menu: `TENSOR Cutter (Beta)`
@@ -64,13 +71,6 @@ for the demo workflow (picture) above, you could get the test model gguf [here](
 - when it was done; the quantized/half-cut safetensors file will be saved to the output folder (./ComfyUI/output)
 
 ![screenshot](https://raw.githubusercontent.com/calcuis/comfy/master/cutter.png)
-
-#### booster (new feature: boost safetensors to fp32)
-- drag safetensors file(s) to diffusion_models folder (./ComfyUI/models/diffusion_models)
-- choose the last option from the gguf menu: `TENSOR Booster`
-- select your safetensors model inside the box; don't need to connect anything; it works independently
-- click `Queue` (run); then you can simply check the processing progress from console
-- when it was done; the quantized/boosted safetensors file will be saved to the output folder (./ComfyUI/output)
 
 #### convertor (convert safetensors to gguf)
 - drag safetensors file(s) to diffusion_models folder (./ComfyUI/models/diffusion_models)
