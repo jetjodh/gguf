@@ -65,7 +65,7 @@ for the demo workflow (picture) above, you could get the test model gguf [here](
 
 ![screenshot](https://raw.githubusercontent.com/calcuis/comfy/master/cutter.png)
 
-#### booster (boost safetensors to fp32)
+#### booster (new feature: boost safetensors to fp32)
 - drag safetensors file(s) to diffusion_models folder (./ComfyUI/models/diffusion_models)
 - choose the last option from the gguf menu: `TENSOR Booster`
 - select your safetensors model inside the box; don't need to connect anything; it works independently
