@@ -36,7 +36,7 @@ check the dropdown menu for `gguf`
 #### other(s): get it somewhere else trustworthy/reliable
 you are also welcome to get the node through other available channels, i.e., comfy-cli, comfyui-manager (search `gguf` from the bar; and opt to install it there should be fine; see picture below), etc.
 ![screenshot](https://raw.githubusercontent.com/calcuis/comfy/master/comfyui-manager.png)
-`gguf` node is no conflict with the popular `comfyui-gguf` node; and is more lightweight (no dependencies needed), more functions (i.e., built-in `tensor cutter`, `tensor booster`, `gguf convertor`, etc.), compatible with the latest version numpy and other updated libraries come with comfyui
+`gguf` node is no conflict with the popular `comfyui-gguf` node (can coexist; and this project actually inspired by it; built upon its code base; we are here honor their developers' contribution; we all appreciate their great work truly; then you could test our version and their version; or mix up use); `gguf` is more lightweight (no dependencies needed), more functions (i.e., built-in `tensor cutter`, `tensor booster`, `gguf convertor`, etc.), compatible with the latest version numpy and other updated libraries come with comfyui
 
 ![screenshot](https://raw.githubusercontent.com/calcuis/comfy/master/demo4.png)
 for the demo workflow (picture) above, you could get the test model gguf [here](https://huggingface.co/calcuis/illustrious), test it whether you can generate the similar outcome or not
@@ -105,6 +105,8 @@ for the demo workflow (picture) above, you could get the test model gguf [here](
 - you can't IMAGINE it works; but it really works!
 - convert your safetensors vae to gguf vae using convertor zero; then try it out!
 - gguf vae loader supports both gguf and safetensors which means you don't need to switch loader anymore
+
+* please upgrade your node to the latest version for resolving the pypi package blockout issue
 
 #### reference
 [comfyui](https://github.com/comfyanonymous/ComfyUI)
