@@ -753,6 +753,13 @@ def quantize_to_fp8(tensor):
 class TENSORCut:
     def __init__(self):
         self.output_dir = folder_paths.get_output_directory()
+        self.blacklist = [
+            'encoder.embed_tokens.weight', 
+            'encoder.block.0.layer.0.SelfAttention.relative_attention_bias.weight', 
+            'shared.weight', 
+            'lm_head.weight', 
+            'model.embed_tokens.weight'
+        ]
     @classmethod
     def INPUT_TYPES(s):
         model_folders = [
@@ -813,9 +820,13 @@ class TENSORCut:
         print('Starting quantization process...')
         for key, tensor in loading(data.items(), desc='Quantizing tensors',
             unit='tensor'):
-            tensor = tensor.to(dtype=torch.bfloat16, device='cuda')
-            quantized_tensor = quantize_to_fp8(tensor)
-            quantized_data[key] = quantized_tensor.cpu()
+            if any(blacklisted in key for blacklisted in self.blacklist):
+                print(f"Skipping quantization for blacklisted layer: {key}")
+                quantized_data[key] = tensor.cpu()  # Keep original tensor
+            else:
+                tensor = tensor.to(dtype=torch.bfloat16, device='cuda')
+                quantized_tensor = quantize_to_fp8(tensor)
+                quantized_data[key] = quantized_tensor.cpu()
         save_file(quantized_data, output_file)
         print(f'Quantized safetensors saved to {output_file}.')
         return {}
