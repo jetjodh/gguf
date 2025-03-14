@@ -38,6 +38,15 @@ class ModelHyVid(ModelTemplate):
     arch = 'hyvid'
     keys_detect = [('double_blocks.0.img_attn_proj.weight',
         'txt_in.individual_token_refiner.blocks.1.self_attn_qkv.weight')]
+    def handle_nd_tensor(self, key, data):
+        path = f'./fix_5d_tensors_{self.arch}.pt'
+        if os.path.isfile(path):
+            raise RuntimeError(f'5D tensor fix file already exists! {path}')
+        fsd = {key: data}
+        tqdm.write(
+            f'5D key found in state dict! Manual fix required! - {key} {data.shape}'
+            )
+        torch.save(fsd, path)
 class ModelWan(ModelHyVid):
     arch = 'wan'
     keys_detect = [('blocks.0.self_attn.norm_q.weight',
@@ -78,14 +87,19 @@ def detect_arch(state_dict):
     model_arch = None
     for arch in arch_list:
         if is_model_arch(arch, state_dict):
-            model_arch = arch
+            model_arch = arch()
             break
     assert model_arch is not None, 'Unknown model architecture!'
     return model_arch
 def load_state_dict(path):
     if any(path.endswith(x) for x in ['.ckpt', '.pt', '.bin', '.pth']):
         state_dict = torch.load(path, map_location='cpu', weights_only=True)
-        state_dict = state_dict.get('model', state_dict)
+        for subkey in ['model', 'module']:
+            if subkey in state_dict:
+                state_dict = state_dict[subkey]
+                break
+        if len(state_dict) < 20:
+            raise RuntimeError(f'pt subkey load failed: {state_dict.keys()}')
     else:
         state_dict = load_file(path)
     prefix = None
@@ -132,6 +146,9 @@ def handle_tensors(args, writer, state_dict, model_arch):
         data_shape = data.shape
         data_qtype = getattr(GGMLQuantizationType, 'BF16' if old_dtype ==
             torch.bfloat16 else 'F16')
+        if len(data.shape) > MAX_TENSOR_DIMS:
+            model_arch.handle_nd_tensor(key, data)
+            continue
         n_params = 1
         for dim_size in data_shape:
             n_params *= dim_size
@@ -145,7 +162,10 @@ def handle_tensors(args, writer, state_dict, model_arch):
         if (model_arch.shape_fix and n_dims > 1 and n_params >=
             REARRANGE_THRESHOLD and (n_params / 256).is_integer() and not (
             data.shape[-1] / 256).is_integer()):
+            orig_shape = data.shape
             data = data.reshape(n_params // 256, 256)
+            writer.add_array(f'comfy.gguf.orig_shape.{key}', tuple(int(dim) for
+                dim in orig_shape))
         try:
             data = quantize(data, data_qtype)
         except (AttributeError, QuantError) as e:
