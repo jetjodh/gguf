@@ -12,6 +12,7 @@ from .gguf_connector.writer import GGUFWriter, GGMLQuantizationType
 from .gguf_connector.const import GGML_QUANT_VERSION, LlamaFileType
 from .gguf_connector.quant import quantize, dequantize, QuantError
 from .gguf_connector.quant2 import dequantize_tensor, is_quantized, is_torch_compatible
+from .gguf_connector.u5 import get_field, gguf_tokenizer_loader
 pig = os.path.join(os.path.dirname(__file__), 'version.json')
 with open(pig, 'r') as file:
     data = json.load(file)
@@ -313,28 +314,6 @@ def get_orig_shape(reader, tensor_name):
             )
     return torch.Size(tuple(int(field.parts[part_idx][0]) for part_idx in
         field.data))
-def get_field(reader, field_name, field_type):
-    field = reader.get_field(field_name)
-    if field is None:
-        return None
-    elif field_type == str:
-        if len(field.types) != 1 or field.types[0] != gr.GGUFValueType.STRING:
-            raise TypeError(f"Bad type for GGUF {field_name} key: expected string, got {field.types!r}")
-        return str(field.parts[field.data[-1]], encoding="utf-8")
-    elif field_type in [int, float, bool]:
-        return field_type(field.parts[field.data[-1]])
-    else:
-        raise TypeError(f"Unknown field type {field_type}")
-def get_list_field(reader, field_name, field_type):
-    field = reader.get_field(field_name)
-    if field is None:
-        return None
-    elif field_type == str:
-        return tuple(str(field.parts[part_idx], encoding="utf-8") for part_idx in field.data)
-    elif field_type in [int, float, bool]:
-        return tuple(field_type(field.parts[part_idx][0]) for part_idx in field.data)
-    else:
-        raise TypeError(f"Unknown field type {field_type}")
 def load_gguf_sd(path, handle_prefix='model.diffusion_model.', return_arch=
     False):
     reader = gr.GGUFReader(path)
@@ -409,40 +388,6 @@ def llama_permute(raw_sd, n_head, n_head_kv):
             v.data = permute(v.data, n_head_kv)
         sd[k] = v
     return sd
-def gguf_tokenizer_loader(path, temb_shape):
-    print(f"Attempting to rebuild sentencepiece tokenizer from metadata..")
-    try:
-        from sentencepiece import sentencepiece_model_pb2 as model
-    except ImportError:
-        raise ImportError("protobuf is required; pip install protobuf")
-    spm = model.ModelProto()
-    reader = gr.GGUFReader(path)
-    if get_field(reader, "tokenizer.ggml.model", str) == "t5":
-        if temb_shape == (256384, 4096):
-            spm.trainer_spec.model_type == 1
-        else:
-            raise NotImplementedError(f"Unknown model detected, rebuild tokenizer failed")
-    else:
-        raise NotImplementedError(f"Unknown model, rebuild tokenizer failed")
-    spm.normalizer_spec.add_dummy_prefix = get_field(reader, "tokenizer.ggml.add_space_prefix", bool)
-    spm.normalizer_spec.remove_extra_whitespaces = get_field(reader, "tokenizer.ggml.remove_extra_whitespaces", bool)
-    tokens = get_list_field(reader, "tokenizer.ggml.tokens", str)
-    scores = get_list_field(reader, "tokenizer.ggml.scores", float)
-    toktypes = get_list_field(reader, "tokenizer.ggml.token_type", int)
-    for idx, (token, score, toktype) in enumerate(zip(tokens, scores, toktypes)):
-        piece = spm.SentencePiece()
-        piece.piece = token
-        piece.score = score
-        piece.type = toktype
-        spm.pieces.append(piece)
-    spm.trainer_spec.byte_fallback = True
-    spm.trainer_spec.vocab_size = len(tokens)
-    spm.trainer_spec.max_sentence_length = 4096
-    spm.trainer_spec.eos_id = get_field(reader, "tokenizer.ggml.eos_token_id", int)
-    spm.trainer_spec.pad_id = get_field(reader, "tokenizer.ggml.padding_token_id", int)
-    print(f"Rebuilt tokenizer successfully with vocab size of {len(spm.pieces)}")
-    del reader
-    return torch.ByteTensor(list(spm.SerializeToString()))
 def load_gguf_clip(path):
     sd, arch = load_gguf_sd(path, return_arch=True)
     if arch in {"t5", "t5encoder"}:
