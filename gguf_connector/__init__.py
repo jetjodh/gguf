@@ -1,4 +1,4 @@
-__version__ = '1.2.8'
+__version__ = '1.3.0'
 def __init__():
     import argparse
     parser = argparse.ArgumentParser()
@@ -34,6 +34,7 @@ def __init__():
     subparsers.add_parser('t6', help='[t6] tensor convertor (zeta)')
     subparsers.add_parser('t7', help='[t7] tensor convertor (eta)')
     subparsers.add_parser('t8', help='[t8] tensor convertor (theta)')
+    subparsers.add_parser('t9', help='[t9] tensor convertor (iota)')
     subparsers.add_parser('pp', help='[pp] pdf analyzor pp')
     subparsers.add_parser('cp', help='[cp] pdf analyzor cp')
     subparsers.add_parser('ps', help='[ps] wav recognizor ps')
