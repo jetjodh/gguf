@@ -1,4 +1,4 @@
-__version__ = '1.3.0'
+__version__ = '1.3.2'
 def __init__():
     import argparse
     parser = argparse.ArgumentParser()
@@ -86,6 +86,8 @@ def __init__():
         from gguf_connector import t7
     elif args.subcommand == 't8':
         from gguf_connector import t8
+    elif args.subcommand == 't9':
+        from gguf_connector import t9
     elif args.subcommand == 'q':
         from gguf_connector import q
     elif args.subcommand == 'q2':
