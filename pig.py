@@ -12,7 +12,8 @@ from .gguf_connector.writer import GGUFWriter, GGMLQuantizationType
 from .gguf_connector.const import GGML_QUANT_VERSION, LlamaFileType
 from .gguf_connector.quant import quantize, dequantize, QuantError
 from .gguf_connector.quant2 import dequantize_tensor, is_quantized, is_torch_compatible
-from .gguf_connector.u5 import get_field, gguf_tokenizer_loader
+# from .gguf_connector.u5 import get_field, gguf_tokenizer_loader
+from .gguf_connector.toke import get_field, tokenizer_builder
 pig = os.path.join(os.path.dirname(__file__), 'version.json')
 with open(pig, 'r') as file:
     data = json.load(file)
@@ -393,14 +394,16 @@ def load_gguf_clip(path):
     if arch in {"t5", "t5encoder"}:
         temb_key = "token_embd.weight"
         if temb_key in sd and sd[temb_key].shape == (256384, 4096):
-            sd["spiece_model"] = gguf_tokenizer_loader(path, sd[temb_key].shape)
-            print(f"Dequantizing {temb_key}")
-            sd[temb_key] = dequantize_tensor(sd[temb_key], dtype=torch.float16)
+            sd["spiece_model"] = tokenizer_builder(path)
+            # sd["spiece_model"] = gguf_tokenizer_loader(path, sd[temb_key].shape)
+            # print(f"Dequantizing {temb_key}")
+            # sd[temb_key] = dequantize_tensor(sd[temb_key], dtype=torch.float16)
         sd = tensor_swap(sd, arrays['T5'])
     elif arch in {'llama'}:
         sd = tensor_swap(sd, arrays['L3'])
         sd = llama_permute(sd, 32, 8)
     elif arch in {'gemma2'}:
+        sd["spiece_model"] = tokenizer_builder(path)
         sd = tensor_swap(sd, arrays['G2'])
     elif arch in {'pig'}:
         sd = pig_work(sd)
