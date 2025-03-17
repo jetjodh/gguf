@@ -339,7 +339,6 @@ def load_gguf_sd(path, handle_prefix='model.diffusion_model.', return_arch=
     state_dict, qtype_dict = {}, {}
     for sd_key, tensor in tensors:
         tensor_name = tensor.name
-        tensor_type_str = str(tensor.tensor_type)
         torch_tensor = torch.from_numpy(tensor.data)
         shape = get_orig_shape(reader, tensor_name)
         if shape is None:
@@ -354,14 +353,13 @@ def load_gguf_sd(path, handle_prefix='model.diffusion_model.', return_arch=
             torch_tensor = torch_tensor.view(*shape)
         state_dict[sd_key] = GGMLTensor(torch_tensor, tensor_type=tensor.
             tensor_type, tensor_shape=shape)
+        tensor_type_str = getattr(tensor.tensor_type, "name", repr(tensor.tensor_type))
         qtype_dict[tensor_type_str] = qtype_dict.get(tensor_type_str, 0) + 1
+    print("gguf qtypes: " + ", ".join(f"{k} ({v})" for k, v in qtype_dict.items()))
     qsd = {k: v for k, v in state_dict.items() if is_quantized(v)}
     if len(qsd) > 0:
         max_key = max(qsd.keys(), key=lambda k: qsd[k].numel())
         state_dict[max_key].is_largest_weight = True
-    print('\nggml_sd_loader:')
-    for k, v in qtype_dict.items():
-        print(f' {k:30}{v:3}')
     if return_arch:
         return state_dict, arch_str
     return state_dict
@@ -918,10 +916,8 @@ class VaeGGUF:
     def load_taesd(name):
         sd = {}
         approx_vaes = folder_paths.get_filename_list('vae_approx')
-        encoder = next(filter(lambda a: a.startswith('{}_encoder.'.format(
-            name)), approx_vaes))
-        decoder = next(filter(lambda a: a.startswith('{}_decoder.'.format(
-            name)), approx_vaes))
+        encoder = next(filter(lambda a: a.startswith('{}_encoder.'.format(name)), approx_vaes))
+        decoder = next(filter(lambda a: a.startswith('{}_decoder.'.format(name)), approx_vaes))
         enc = comfy.utils.load_torch_file(folder_paths.
             get_full_path_or_raise('vae_approx', encoder))
         for k in enc:
