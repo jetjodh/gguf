@@ -81,7 +81,7 @@ for the demo workflow (picture) above, you could get the test model gguf [here](
 - when it was done; the converted gguf file will be saved to the output folder (./ComfyUI/output)
 
 ![screenshot](https://raw.githubusercontent.com/calcuis/comfy/master/convertor.png)
-**little tips**: to make a so-called `fast` model; could try to cut the selected model (bf16) half (use cutter) first; and convert the trimmed model (fp8) to gguf (pretty much the same file size with the bf16 quantized output but less tensors inside; load faster theoretically, but no guarantee, you should test it probably, and might also be prepared for the significant quality loss)
+**little tips**: to make a so-called `fast` model; could try to cut the selected model (bf16) half (use cutter) first; and convert the trimmed model (fp8) to gguf (pretty much same file size with the bf16 or f16 quantized output but less tensors inside; load faster theoretically, but no guarantee, you should test it probably, and might also be prepared for the significant quality loss)
 
 #### reverser (reverse convert gguf to safetensors)
 - drag gguf file(s) to diffusion_models folder (./ComfyUI/models/diffusion_models)
