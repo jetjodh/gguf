@@ -71,7 +71,7 @@ for the demo workflow (picture) above, you could get the test model gguf [here](
 - when it was done; the quantized/half-cut safetensors file will be saved to the output folder (./ComfyUI/output)
 
 ![screenshot](https://raw.githubusercontent.com/calcuis/comfy/master/cutter.png)
-**little tips**: for whatever reason, some tensor(s) in particular model(s) might need to stay at fp32 or f32 status to work; espeically for vae, which is very common; in that case, most likely the half-cut safetensors might not work (i.e., black screen output); you might need to learn that tactic: boost your safetensors to fp32 to make sure it works then do the quantization/conversion based on that fp32 file
+**little tips**: for whatever reason, some tensor(s) in particular model(s) might need to stay at fp32 or f32 status to work; espeically for vae, which is very common; in that case, most likely the half-cut safetensors might not work (i.e., black screen output); you might need to learn that tactic: boost your safetensors to fp32 (if you cannot find the original fp32 version) to make sure it works then do the quantization/conversion based on that fp32 file
 
 #### convertor (convert safetensors to gguf)
 - drag safetensors file(s) to diffusion_models folder (./ComfyUI/models/diffusion_models)
