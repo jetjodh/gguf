@@ -1,4 +1,4 @@
-__version__ = '1.3.3'
+__version__ = '1.3.4'
 def __init__():
     import argparse
     parser = argparse.ArgumentParser()
@@ -24,6 +24,7 @@ def __init__():
     subparsers.add_parser('r3', help='[r3] tensor reader')
     subparsers.add_parser('q', help='[q] tensor quantizor')
     subparsers.add_parser('q2', help='[q2] tensor quantizor (upscale)')
+    subparsers.add_parser('ma', help='[ma] merge all')
     subparsers.add_parser('t', help='[t] tensor convertor')
     subparsers.add_parser('t0', help='[t0] tensor convertor (zero)')
     subparsers.add_parser('t1', help='[t1] tensor convertor (alpha)')
@@ -92,6 +93,8 @@ def __init__():
         from gguf_connector import q
     elif args.subcommand == 'q2':
         from gguf_connector import q2
+    elif args.subcommand == 'ma':
+        from gguf_connector import ma
     elif args.subcommand == 'cg':
         from gguf_connector import cg
     elif args.subcommand == 'pg':
