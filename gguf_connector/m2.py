@@ -1,4 +1,5 @@
 import os
+from tqdm import tqdm
 def merge_gguf_files():
     gguf_files = [f for f in os.listdir('.') if f.endswith('.gguf')]
     if not gguf_files:
@@ -9,8 +10,7 @@ def merge_gguf_files():
         filename = 'model'
     output_file = f'{filename}.gguf'
     with open(output_file, 'wb') as outfile:
-        for fname in gguf_files:
-            print(f'Merging: {fname}')
+        for fname in tqdm(gguf_files, desc='Merging files', unit='file'):
             with open(fname, 'rb') as infile:
                 outfile.write(infile.read())
     print(f'\nAll files merged into: {output_file}')
