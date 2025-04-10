@@ -126,13 +126,29 @@ class GGMLTensor(torch.Tensor):
         if not hasattr(self, 'tensor_shape'):
             self.tensor_shape = self.size()
         return self.tensor_shape
-if hasattr(torch, "compiler") and hasattr(torch.compiler, "disable"):
-    torch_compiler_disable = torch.compiler.disable
-else:
-    def torch_compiler_disable(*args, **kwargs):
+def chained_hasattr(obj, chained_attr):
+    probe = obj
+    for attr in chained_attr.split('.'):
+        if hasattr(probe, attr):
+            probe = getattr(probe, attr)
+        else:
+            return False
+    return True
+def get_torch_compiler_disable_decorator():
+    def dummy_decorator(*args, **kwargs):
         def noop(x):
             return x
         return noop
+    from packaging import version
+    if not chained_hasattr(torch, "compiler.disable"):
+        return dummy_decorator
+    elif version.parse(torch.__version__) >= version.parse("2.8"):
+        return dummy_decorator
+    if chained_hasattr(torch, "_dynamo.config.nontraceable_tensor_subclasses"):
+        return dummy_decorator
+    else:
+        return torch.compiler.disable
+torch_compiler_disable = get_torch_compiler_disable_decorator()
 class GGMLLayer(torch.nn.Module):
     comfy_cast_weights = True
     dequant_dtype = None
@@ -200,7 +216,7 @@ class GGMLLayer(torch.nn.Module):
             patch_list += load_patch_to_device(patches, device)
         weight = dequantize_tensor(tensor, dtype, self.dequant_dtype)
         if isinstance(weight, GGMLTensor):
-            weight.__class__ = torch.Tensor
+            weight = torch.Tensor(weight)
         if patch_list:
             if self.patch_dtype is None:
                 weight = function(patch_list, weight, key)
@@ -236,7 +252,7 @@ class GGMLLayer(torch.nn.Module):
         else:
             out = super().forward_comfy_cast_weights(input, *args, **kwargs)
         if isinstance(out, GGMLTensor):
-            out.__class__ = torch.Tensor
+            out = torch.Tensor(out)
         return out
     def forward_ggml_cast_weights(self, input):
         raise NotImplementedError
