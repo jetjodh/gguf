@@ -126,29 +126,13 @@ class GGMLTensor(torch.Tensor):
         if not hasattr(self, 'tensor_shape'):
             self.tensor_shape = self.size()
         return self.tensor_shape
-def chained_hasattr(obj, chained_attr):
-    probe = obj
-    for attr in chained_attr.split('.'):
-        if hasattr(probe, attr):
-            probe = getattr(probe, attr)
-        else:
-            return False
-    return True
-def get_torch_compiler_disable_decorator():
-    def dummy_decorator(*args, **kwargs):
+if hasattr(torch, "compiler") and hasattr(torch.compiler, "disable"):
+    torch_compiler_disable = torch.compiler.disable
+else:
+    def torch_compiler_disable(*args, **kwargs):
         def noop(x):
             return x
         return noop
-    from packaging import version
-    if not chained_hasattr(torch, "compiler.disable"):
-        return dummy_decorator
-    elif version.parse(torch.__version__) >= version.parse("2.8"):
-        return dummy_decorator
-    if chained_hasattr(torch, "_dynamo.config.nontraceable_tensor_subclasses"):
-        return dummy_decorator
-    else:
-        return torch.compiler.disable
-torch_compiler_disable = get_torch_compiler_disable_decorator()
 class GGMLLayer(torch.nn.Module):
     comfy_cast_weights = True
     dequant_dtype = None
