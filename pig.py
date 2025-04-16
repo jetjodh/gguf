@@ -12,6 +12,7 @@ from .gguf_connector.writer import GGUFWriter, GGMLQuantizationType
 from .gguf_connector.const import GGML_QUANT_VERSION, LlamaFileType
 from .gguf_connector.quant import quantize, dequantize, QuantError
 from .gguf_connector.quant2 import dequantize_tensor, is_quantized, is_torch_compatible
+from .gguf_connector.tkn import get_field, tokenizer_builder
 pig = os.path.join(os.path.dirname(__file__), 'version.json')
 with open(pig, 'r') as file:
     data = json.load(file)
@@ -20,8 +21,7 @@ for key, value in data[0].items():
     arrays[key] = value
 class GGUFModelPatcher(comfy.model_patcher.ModelPatcher):
     patch_on_device = False
-    def patch_weight_to_device(self, key, device_to=None, inplace_update=False
-        ):
+    def patch_weight_to_device(self, key, device_to=None, inplace_update=False):
         if key not in self.patches:
             return
         weight = comfy.utils.get_attr(self.model, key)
@@ -200,7 +200,7 @@ class GGMLLayer(torch.nn.Module):
             patch_list += load_patch_to_device(patches, device)
         weight = dequantize_tensor(tensor, dtype, self.dequant_dtype)
         if isinstance(weight, GGMLTensor):
-            weight.__class__ = torch.Tensor
+            weight = torch.Tensor(weight)
         if patch_list:
             if self.patch_dtype is None:
                 weight = function(patch_list, weight, key)
@@ -236,7 +236,7 @@ class GGMLLayer(torch.nn.Module):
         else:
             out = super().forward_comfy_cast_weights(input, *args, **kwargs)
         if isinstance(out, GGMLTensor):
-            out.__class__ = torch.Tensor
+            out = torch.Tensor(out)
         return out
     def forward_ggml_cast_weights(self, input):
         raise NotImplementedError
@@ -331,24 +331,14 @@ def load_gguf_sd(path, handle_prefix='model.diffusion_model.', return_arch=
             sd_key = tensor_name[prefix_len:]
         tensors.append((sd_key, tensor))
     compat = None
-    arch_str = None
-    arch_field = reader.get_field('general.architecture')
-    if arch_field is not None:
-        if len(arch_field.types) != 1 or arch_field.types[0
-            ] != gr.GGUFValueType.STRING:
-            raise TypeError(
-                f'Bad type for GGUF general.architecture key: expected string, got {arch_field.types!r}'
-                )
-        arch_str = str(arch_field.parts[arch_field.data[-1]], encoding='utf-8')
-        if arch_str not in arrays['PIG_ARCH_LIST'] and arch_str not in arrays[
-            'TXT_ARCH_LIST']:
-            raise ValueError(f'Unknown architecture: {arch_str!r}')
-    else:
-        compat = 'sd.cpp'
+    arch_str = get_field(reader, "general.architecture", str)
+    if arch_str is None:
+        compat = "sd.cpp"
+    elif arch_str not in arrays['PIG_ARCH_LIST'] and arch_str not in arrays['TXT_ARCH_LIST']:
+        raise ValueError(f"Unknown architecture: {arch_str!r}")
     state_dict, qtype_dict = {}, {}
     for sd_key, tensor in tensors:
         tensor_name = tensor.name
-        tensor_type_str = str(tensor.tensor_type)
         torch_tensor = torch.from_numpy(tensor.data)
         shape = get_orig_shape(reader, tensor_name)
         if shape is None:
@@ -363,14 +353,13 @@ def load_gguf_sd(path, handle_prefix='model.diffusion_model.', return_arch=
             torch_tensor = torch_tensor.view(*shape)
         state_dict[sd_key] = GGMLTensor(torch_tensor, tensor_type=tensor.
             tensor_type, tensor_shape=shape)
+        tensor_type_str = getattr(tensor.tensor_type, "name", repr(tensor.tensor_type))
         qtype_dict[tensor_type_str] = qtype_dict.get(tensor_type_str, 0) + 1
+    print("gguf qtypes: " + ", ".join(f"{k} ({v})" for k, v in qtype_dict.items()))
     qsd = {k: v for k, v in state_dict.items() if is_quantized(v)}
     if len(qsd) > 0:
         max_key = max(qsd.keys(), key=lambda k: qsd[k].numel())
         state_dict[max_key].is_largest_weight = True
-    print('\nggml_sd_loader:')
-    for k, v in qtype_dict.items():
-        print(f' {k:30}{v:3}')
     if return_arch:
         return state_dict, arch_str
     return state_dict
@@ -399,12 +388,16 @@ def llama_permute(raw_sd, n_head, n_head_kv):
     return sd
 def load_gguf_clip(path):
     sd, arch = load_gguf_sd(path, return_arch=True)
-    if arch in {'t5', 't5encoder'}:
+    if arch in {"t5", "t5encoder"}:
+        temb_key = "token_embd.weight"
+        if temb_key in sd and sd[temb_key].shape == (256384, 4096):
+            sd["spiece_model"] = tokenizer_builder(path)
         sd = tensor_swap(sd, arrays['T5'])
     elif arch in {'llama'}:
         sd = tensor_swap(sd, arrays['L3'])
         sd = llama_permute(sd, 32, 8)
     elif arch in {'gemma2'}:
+        sd["spiece_model"] = tokenizer_builder(path)
         sd = tensor_swap(sd, arrays['G2'])
     elif arch in {'pig'}:
         sd = pig_work(sd)
@@ -526,6 +519,21 @@ class TripleClipLoaderGGUF(ClipLoaderGGUF):
         clip_path2 = folder_paths.get_full_path('clip', clip_name2)
         clip_path3 = folder_paths.get_full_path('clip', clip_name3)
         clip_paths = clip_path1, clip_path2, clip_path3
+        return self.load_patcher(clip_paths, get_clip_type(type), self.
+            load_data(clip_paths)),
+class QuadrupleClipLoaderGGUF(ClipLoaderGGUF):
+    @classmethod
+    def INPUT_TYPES(s):
+        file_options = s.get_filename_list(),
+        return {'required': {'clip_name1': file_options, 'clip_name2':
+            file_options, 'clip_name3': file_options, 'clip_name4': file_options}}
+    TITLE = 'GGUF QuadrupleCLIP Loader'
+    def load_clip(self, clip_name1, clip_name2, clip_name3, clip_name4, type='hunyuan_video'):
+        clip_path1 = folder_paths.get_full_path('clip', clip_name1)
+        clip_path2 = folder_paths.get_full_path('clip', clip_name2)
+        clip_path3 = folder_paths.get_full_path('clip', clip_name3)
+        clip_path4 = folder_paths.get_full_path('clip', clip_name4)
+        clip_paths = clip_path1, clip_path2, clip_path3, clip_path4
         return self.load_patcher(clip_paths, get_clip_type(type), self.
             load_data(clip_paths)),
 QUANTIZATION_THRESHOLD = 1024
@@ -830,6 +838,36 @@ class TENSORCut:
         save_file(quantized_data, output_file)
         print(f'Quantized safetensors saved to {output_file}.')
         return {}
+class TENSORBoost:
+    def __init__(self):
+        self.output_dir = folder_paths.get_output_directory()
+    @classmethod
+    def INPUT_TYPES(s):
+        return {'required': {'select_safetensors': (s.get_filename_list(),)}}
+    RETURN_TYPES = ()
+    FUNCTION = 'boost'
+    OUTPUT_NODE = True
+    CATEGORY = 'gguf'
+    TITLE = 'TENSOR Booster'
+    @classmethod
+    def get_filename_list(s):
+        files = []
+        files += folder_paths.get_filename_list('select_safetensors')
+        return sorted(files)
+    def boost(self, select_safetensors):
+        input_file = folder_paths.get_full_path('select_safetensors',
+            select_safetensors)
+        output_file = (
+            f'{self.output_dir}/{os.path.splitext(select_safetensors)[0]}_fp32.safetensors'
+            )
+        data = load_file(input_file)
+        quantized_data = {}
+        print('Starting quantization process...')
+        for key, tensor in loading(data.items(), desc="Converting tensors", unit="tensor"):
+            quantized_data[key] = tensor.to(torch.float32)
+        save_file(quantized_data, output_file)
+        print(f'Quantized safetensors saved to {output_file}.')
+        return {}
 def load_gguf_and_extract_metadata(gguf_path):
     reader = gr.GGUFReader(gguf_path)
     tensors_metadata = []
@@ -940,10 +978,8 @@ class VaeGGUF:
     def load_taesd(name):
         sd = {}
         approx_vaes = folder_paths.get_filename_list('vae_approx')
-        encoder = next(filter(lambda a: a.startswith('{}_encoder.'.format(
-            name)), approx_vaes))
-        decoder = next(filter(lambda a: a.startswith('{}_decoder.'.format(
-            name)), approx_vaes))
+        encoder = next(filter(lambda a: a.startswith('{}_encoder.'.format(name)), approx_vaes))
+        decoder = next(filter(lambda a: a.startswith('{}_decoder.'.format(name)), approx_vaes))
         enc = comfy.utils.load_torch_file(folder_paths.
             get_full_path_or_raise('vae_approx', encoder))
         for k in enc:
@@ -988,10 +1024,12 @@ NODE_CLASS_MAPPINGS = {
     "ClipLoaderGGUF": ClipLoaderGGUF,
     "DualClipLoaderGGUF": DualClipLoaderGGUF,
     "TripleClipLoaderGGUF": TripleClipLoaderGGUF,
+    "QuadrupleClipLoaderGGUF": QuadrupleClipLoaderGGUF,
     "LoaderGGUFAdvanced": LoaderGGUFAdvanced,
     "VaeGGUF": VaeGGUF,
     "GGUFUndo": GGUFUndo,
     "GGUFSave": GGUFSave,
     "GGUFRun": GGUFRun,
     "TENSORCut": TENSORCut,
+    "TENSORBoost": TENSORBoost,
 }

@@ -1,4 +1,4 @@
-### gguf node for comfyui [![Static Badge](https://img.shields.io/badge/ver-0.2.1-black?logo=github)](https://github.com/calcuis/gguf/releases)
+### gguf node for comfyui [![Static Badge](https://img.shields.io/badge/ver-0.2.4-black?logo=github)](https://github.com/calcuis/gguf/releases)
 
 [<img src="https://raw.githubusercontent.com/calcuis/comfy/master/gguf.gif" width="128" height="128">](https://github.com/calcuis/gguf)
 
@@ -36,7 +36,7 @@ check the dropdown menu for `gguf`
 #### other(s): get it somewhere else trustworthy/reliable
 you are also welcome to get the node through other available channels, i.e., comfy-cli, comfyui-manager (search `gguf` from the bar; and opt to install it there should be fine; see picture below), etc.
 ![screenshot](https://raw.githubusercontent.com/calcuis/comfy/master/comfyui-manager.png)
-`gguf` node is no conflict with the popular `comfyui-gguf` node (can coexist; and this project actually inspired by it; built upon its code base; we are here honor their developers' contribution; we all appreciate their great work truly; then you could test our version and their version both; or mixing up use, switch in between freely, all for your own purpose and need); and is more lightweight (no dependencies needed), more functions (i.e., built-in `tensor cutter`, `gguf convertor`, etc.), compatible with the latest version numpy and other updated libraries come with comfyui
+`gguf` node is no conflict with the popular `comfyui-gguf` node (can coexist; and this project actually inspired by it; built upon its code base; we are here honor their developers' contribution; we all appreciate their great work truly; then you could test our version and their version; or mix up use); and `gguf` is more lightweight (no dependencies needed), more functions (i.e., built-in `tensor cutter`, `tensor booster`, `gguf convertor`, etc.), compatible with the latest version numpy and other updated libraries come with comfyui
 
 ![screenshot](https://raw.githubusercontent.com/calcuis/comfy/master/demo4.png)
 for the demo workflow (picture) above, you could get the test model gguf [here](https://huggingface.co/calcuis/illustrious), test it whether you can generate the similar outcome or not
@@ -56,24 +56,32 @@ for the demo workflow (picture) above, you could get the test model gguf [here](
 - design your own prompt; or
 - generate a random prompt/descriptor by the [simulator](https://prompt.calcuis.us) (though it might not be applicable for all)
 
+#### booster (new feature: boost safetensors to fp32)🐷
+- drag safetensors file(s) to diffusion_models folder (./ComfyUI/models/diffusion_models)
+- choose the last option from the gguf menu: `TENSOR Booster`
+- select your safetensors model inside the box; don't need to connect anything; it works independently
+- click `Queue` (run); then you can simply check the processing progress from console
+- when it was done; the quantized/boosted safetensors file will be saved to the output folder (./ComfyUI/output)
+
 #### cutter (cut safetensors in half - bf16 to fp8)
 - drag safetensors file(s) to diffusion_models folder (./ComfyUI/models/diffusion_models)
-- choose the last option from the gguf menu: `TENSOR Cutter (Beta)`
+- choose the second last option from the gguf menu: `TENSOR Cutter (Beta)`
 - select your safetensors model inside the box; don't need to connect anything; it works independently
 - click `Queue` (run); then you can simply check the processing progress from console
 - when it was done; the quantized/half-cut safetensors file will be saved to the output folder (./ComfyUI/output)
 
 ![screenshot](https://raw.githubusercontent.com/calcuis/comfy/master/cutter.png)
+**little tips**: for whatever reason, some tensor(s) in particular model(s) might need to stay at fp32 or f32 status to work; espeically for vae, which is very common; in that case, most likely the half-cut safetensors might not work (i.e., black screen output); you might need to learn that tactic: boost your safetensors to fp32 (if you cannot find the original fp32 version) to make sure it works first then do the quantization/conversion based on that fp32 file
 
 #### convertor (convert safetensors to gguf)
 - drag safetensors file(s) to diffusion_models folder (./ComfyUI/models/diffusion_models)
-- choose the third last option from the gguf menu: `GGUF Convertor (Alpha)`
+- choose the fourth last option from the gguf menu: `GGUF Convertor (Alpha)`
 - select your safetensors model inside the box; don't need to connect anything; it works independently also
 - click `Queue` (run); then you can simply check the processing progress from console
 - when it was done; the converted gguf file will be saved to the output folder (./ComfyUI/output)
 
 ![screenshot](https://raw.githubusercontent.com/calcuis/comfy/master/convertor.png)
-**little tips**: to make a so-called `fast` model; could try to cut the selected model (bf16) half (use cutter) first; and convert the trimmed model (fp8) to gguf (pretty much the same file size with the bf16 quantized output but less tensors inside; load faster theoretically, but no guarantee, you should test it probably, and might also be prepared for the significant quality loss)
+**little tips**: to make a so-called `fast` model; could try to cut the selected model (bf16) half (use cutter) first; and convert the trimmed model (fp8) to gguf (pretty much same file size with the bf16 or f16 quantized output but less tensors inside; load faster theoretically, but no guarantee, you should test it probably, and might also be prepared for the significant quality loss)
 
 #### reverser (reverse convert gguf to safetensors)
 - drag gguf file(s) to diffusion_models folder (./ComfyUI/models/diffusion_models)
@@ -88,7 +96,7 @@ for the demo workflow (picture) above, you could get the test model gguf [here](
 ### convertor ZERO
 #### new flagship feature: convert safetensors to gguf without any restriction; no unsupported models anymore; never
 - drag safetensors file(s) to diffusion_models folder (./ComfyUI/models/diffusion_models)
-- choose the second last option from the gguf menu: `GGUF Convertor (Zero)`
+- choose the third last option from the gguf menu: `GGUF Convertor (Zero)`
 - select your safetensors model inside the box; don't need to connect anything; it works independently!
 - click `Queue` (run); then you can simply check the processing progress from console
 - when it was done; the converted gguf file will be saved to the output folder (./ComfyUI/output)
@@ -98,6 +106,9 @@ for the demo workflow (picture) above, you could get the test model gguf [here](
 - you can't IMAGINE it works; but it really works!
 - convert your safetensors vae to gguf vae using convertor zero; then try it out!
 - gguf vae loader supports both gguf and safetensors which means you don't need to switch loader anymore
+
+#### 📄 bug report (solved)
+- please upgrade your node to the latest version for resolving the pypi gguf pack blockout issue if you have node(s) depending on gguf pack to work
 
 #### reference
 [comfyui](https://github.com/comfyanonymous/ComfyUI)

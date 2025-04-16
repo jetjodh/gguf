@@ -34,7 +34,7 @@ if gguf_files:
             from rich.progress import Progress
             with Progress(transient=True) as progress:
                 task = progress.add_task('Processing', total=None)
-                output = llm('Q: ' + str(i.get()), max_tokens=2048, echo=True)
+                output = llm('Q: ' + str(i.get()), max_tokens=4096, echo=True)
                 answer = output['choices'][0]['text']
                 print(answer)
             o.insert(INSERT, answer + '\n\n')
