@@ -766,7 +766,8 @@ class TENSORCut:
             'encoder.block.0.layer.0.SelfAttention.relative_attention_bias.weight', 
             'shared.weight', 
             'lm_head.weight', 
-            'model.embed_tokens.weight'
+            'model.embed_tokens.weight',
+            '.ff_i.gate.weight',
         ]
     @classmethod
     def INPUT_TYPES(s):
