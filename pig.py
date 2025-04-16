@@ -528,7 +528,7 @@ class QuadrupleClipLoaderGGUF(ClipLoaderGGUF):
         return {'required': {'clip_name1': file_options, 'clip_name2':
             file_options, 'clip_name3': file_options, 'clip_name4': file_options}}
     TITLE = 'GGUF QuadrupleCLIP Loader'
-    def load_clip(self, clip_name1, clip_name2, clip_name3, clip_name4, type='hidream'):
+    def load_clip(self, clip_name1, clip_name2, clip_name3, clip_name4, type='stable_diffusion'):
         clip_path1 = folder_paths.get_full_path('clip', clip_name1)
         clip_path2 = folder_paths.get_full_path('clip', clip_name2)
         clip_path3 = folder_paths.get_full_path('clip', clip_name3)
