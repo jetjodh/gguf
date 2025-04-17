@@ -19,7 +19,7 @@ if gguf_files:
             from rich.progress import Progress
             with Progress(transient=True) as progress:
                 task = progress.add_task('Processing', total=None)
-                output = llm('Q: ' + ask, max_tokens=8192, echo=True)
+                output = llm('Q: ' + ask, max_tokens=4096, echo=True)
                 answer = output['choices'][0]['text']
                 print(answer + '\n')
     except (ValueError, IndexError):
