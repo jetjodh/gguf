@@ -85,7 +85,7 @@ for the demo workflow (picture) above, you could get the test model gguf [here](
 
 #### reverser (reverse convert gguf to safetensors)
 - drag gguf file(s) to diffusion_models folder (./ComfyUI/models/diffusion_models)
-- choose the seventh option from the gguf menu: `GGUF Convertor (Reverse)`
+- choose the option below gguf vae loader from the gguf menu: `GGUF Convertor (Reverse)`
 - select your gguf file inside the box; don't need to connect anything; it works independently as well
 - click `Queue` (run); then you can simply check the processing progress from console
 - when it was done; the converted safetensors file will be saved to the output folder (./ComfyUI/output)
