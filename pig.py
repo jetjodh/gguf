@@ -456,7 +456,8 @@ class ClipLoaderGGUF:
     @classmethod
     def INPUT_TYPES(s):
         base = nodes.CLIPLoader.INPUT_TYPES()
-        return {'required': {'clip_name': (s.get_filename_list(),), 'type':base['required']['type'],}}
+        return {'required': {'clip_name': (s.get_filename_list(),), 'type':
+                             base['required']['type'],}}
     RETURN_TYPES = 'CLIP',
     FUNCTION = 'load_clip'
     CATEGORY = 'gguf'
@@ -492,7 +493,8 @@ class DualClipLoaderGGUF(ClipLoaderGGUF):
     def INPUT_TYPES(s):
         base = nodes.DualCLIPLoader.INPUT_TYPES()
         file_options = s.get_filename_list(),
-        return {'required': {'clip_name1':file_options, 'clip_name2':file_options, 'type':base['required']['type']}}
+        return {'required': {'clip_name1':file_options, 'clip_name2':file_options, 'type':
+                             base['required']['type']}}
     TITLE = 'GGUF DualCLIP Loader'
     def load_clip(self, clip_name1, clip_name2, type):
         clip_path1 = folder_paths.get_full_path('clip', clip_name1)
