@@ -3,7 +3,7 @@ import comfy.ops
 import comfy.utils
 import comfy.model_patcher
 import comfy.model_management
-import torch, numpy, os, json, logging, collections, folder_paths
+import torch, numpy, os, json, logging, collections, nodes, folder_paths
 from safetensors.torch import load_file, save_file
 from typing import Dict, Tuple
 from tqdm import tqdm as loading
@@ -126,7 +126,7 @@ class GGMLTensor(torch.Tensor):
         if not hasattr(self, 'tensor_shape'):
             self.tensor_shape = self.size()
         return self.tensor_shape
-if hasattr(torch, "compiler") and hasattr(torch.compiler, "disable"):
+if hasattr(torch, 'compiler') and hasattr(torch.compiler, 'disable'):
     torch_compiler_disable = torch.compiler.disable
 else:
     def torch_compiler_disable(*args, **kwargs):
@@ -331,9 +331,9 @@ def load_gguf_sd(path, handle_prefix='model.diffusion_model.', return_arch=
             sd_key = tensor_name[prefix_len:]
         tensors.append((sd_key, tensor))
     compat = None
-    arch_str = get_field(reader, "general.architecture", str)
+    arch_str = get_field(reader, 'general.architecture', str)
     if arch_str is None:
-        compat = "sd.cpp"
+        compat = 'sd.cpp'
     elif arch_str not in arrays['PIG_ARCH_LIST'] and arch_str not in arrays['TXT_ARCH_LIST']:
         raise ValueError(f"Unknown architecture: {arch_str!r}")
     state_dict, qtype_dict = {}, {}
@@ -353,9 +353,9 @@ def load_gguf_sd(path, handle_prefix='model.diffusion_model.', return_arch=
             torch_tensor = torch_tensor.view(*shape)
         state_dict[sd_key] = GGMLTensor(torch_tensor, tensor_type=tensor.
             tensor_type, tensor_shape=shape)
-        tensor_type_str = getattr(tensor.tensor_type, "name", repr(tensor.tensor_type))
+        tensor_type_str = getattr(tensor.tensor_type, 'name', repr(tensor.tensor_type))
         qtype_dict[tensor_type_str] = qtype_dict.get(tensor_type_str, 0) + 1
-    print("gguf qtypes: " + ", ".join(f"{k} ({v})" for k, v in qtype_dict.items()))
+    print('gguf qtypes: ' + ', '.join(f'{k} ({v})' for k, v in qtype_dict.items()))
     qsd = {k: v for k, v in state_dict.items() if is_quantized(v)}
     if len(qsd) > 0:
         max_key = max(qsd.keys(), key=lambda k: qsd[k].numel())
@@ -388,10 +388,10 @@ def llama_permute(raw_sd, n_head, n_head_kv):
     return sd
 def load_gguf_clip(path):
     sd, arch = load_gguf_sd(path, return_arch=True)
-    if arch in {"t5", "t5encoder"}:
-        temb_key = "token_embd.weight"
+    if arch in {'t5', 't5encoder'}:
+        temb_key = 'token_embd.weight'
         if temb_key in sd and sd[temb_key].shape == (256384, 4096):
-            sd["spiece_model"] = tokenizer_builder(path)
+            sd['spiece_model'] = tokenizer_builder(path)
         sd = tensor_swap(sd, arrays['T5'])
     elif arch in {'llama'}:
         sd = tensor_swap(sd, arrays['L3'])
@@ -449,20 +449,15 @@ class LoaderGGUFAdvanced(LoaderGGUF):
             'float32', 'float16', 'bfloat16'], {'default': 'default'}),
             'patch_on_device': ('BOOLEAN', {'default': False})}}
     TITLE = 'GGUF Loader (Advanced)'
-def get_clip_type(name):
-    enum_name = arrays['CLIP_ENUM_MAP'].get(name, None)
-    if enum_name is None:
-        raise ValueError(f'Unknown CLIP model type {name}')
-    clip_type = getattr(comfy.sd.CLIPType, arrays['CLIP_ENUM_MAP'][name], None)
-    if clip_type is None:
-        raise ValueError(
-            f'Unsupported CLIP model type {name} (please upgrade your node)')
+def get_clip_type(type):
+    clip_type = getattr(comfy.sd.CLIPType, type.upper(), comfy.sd.CLIPType.STABLE_DIFFUSION)
     return clip_type
 class ClipLoaderGGUF:
     @classmethod
     def INPUT_TYPES(s):
+        base = nodes.CLIPLoader.INPUT_TYPES()
         return {'required': {'clip_name': (s.get_filename_list(),), 'type':
-            (arrays['CLIP_1'],)}}
+                             base['required']['type'],}}
     RETURN_TYPES = 'CLIP',
     FUNCTION = 'load_clip'
     CATEGORY = 'gguf'
@@ -492,21 +487,20 @@ class ClipLoaderGGUF:
         return clip
     def load_clip(self, clip_name, type='stable_diffusion'):
         clip_path = folder_paths.get_full_path('clip', clip_name)
-        return self.load_patcher([clip_path], get_clip_type(type), self.
-            load_data([clip_path])),
+        return (self.load_patcher([clip_path], get_clip_type(type), self.load_data([clip_path])),)
 class DualClipLoaderGGUF(ClipLoaderGGUF):
     @classmethod
     def INPUT_TYPES(s):
+        base = nodes.DualCLIPLoader.INPUT_TYPES()
         file_options = s.get_filename_list(),
-        return {'required': {'clip_name1': file_options, 'clip_name2':
-            file_options, 'type': (arrays['CLIP_2'],)}}
+        return {'required': {'clip_name1':file_options, 'clip_name2':file_options, 'type':
+                             base['required']['type']}}
     TITLE = 'GGUF DualCLIP Loader'
     def load_clip(self, clip_name1, clip_name2, type):
         clip_path1 = folder_paths.get_full_path('clip', clip_name1)
         clip_path2 = folder_paths.get_full_path('clip', clip_name2)
         clip_paths = clip_path1, clip_path2
-        return self.load_patcher(clip_paths, get_clip_type(type), self.
-            load_data(clip_paths)),
+        return (self.load_patcher(clip_paths, get_clip_type(type), self.load_data(clip_paths)),)
 class TripleClipLoaderGGUF(ClipLoaderGGUF):
     @classmethod
     def INPUT_TYPES(s):
@@ -519,8 +513,7 @@ class TripleClipLoaderGGUF(ClipLoaderGGUF):
         clip_path2 = folder_paths.get_full_path('clip', clip_name2)
         clip_path3 = folder_paths.get_full_path('clip', clip_name3)
         clip_paths = clip_path1, clip_path2, clip_path3
-        return self.load_patcher(clip_paths, get_clip_type(type), self.
-            load_data(clip_paths)),
+        return (self.load_patcher(clip_paths, get_clip_type(type), self.load_data(clip_paths)),)
 class QuadrupleClipLoaderGGUF(ClipLoaderGGUF):
     @classmethod
     def INPUT_TYPES(s):
@@ -534,8 +527,7 @@ class QuadrupleClipLoaderGGUF(ClipLoaderGGUF):
         clip_path3 = folder_paths.get_full_path('clip', clip_name3)
         clip_path4 = folder_paths.get_full_path('clip', clip_name4)
         clip_paths = clip_path1, clip_path2, clip_path3, clip_path4
-        return self.load_patcher(clip_paths, get_clip_type(type), self.
-            load_data(clip_paths)),
+        return (self.load_patcher(clip_paths, get_clip_type(type), self.load_data(clip_paths)),)
 QUANTIZATION_THRESHOLD = 1024
 REARRANGE_THRESHOLD = 512
 MAX_TENSOR_NAME_LENGTH = 127
