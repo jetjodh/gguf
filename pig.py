@@ -80,8 +80,7 @@ class GGUFModelPatcher(comfy.model_patcher.ModelPatcher):
                         if device == self.offload_device:
                             linked.append((n, m))
                             continue
-            if linked:
-            # if linked and self.load_device != self.offload_device:
+            if linked and self.load_device != self.offload_device:
                 print(f'Attempting to release mmap ({len(linked)})')
                 for n, m in linked:
                     m.to(self.load_device).to(self.offload_device)
