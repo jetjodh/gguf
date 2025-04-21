@@ -452,12 +452,17 @@ class LoaderGGUFAdvanced(LoaderGGUF):
 def get_clip_type(type):
     clip_type = getattr(comfy.sd.CLIPType, type.upper(), comfy.sd.CLIPType.STABLE_DIFFUSION)
     return clip_type
+def get_device(device):
+    model_options = {}
+    if device == "cpu":
+        model_options["load_device"] = model_options["offload_device"] = torch.device("cpu")
+    return model_options
 class ClipLoaderGGUF:
     @classmethod
     def INPUT_TYPES(s):
         base = nodes.CLIPLoader.INPUT_TYPES()
         return {'required': {'clip_name': (s.get_filename_list(),), 'type':
-                             base['required']['type'],}}
+                             base['required']['type'],'device':(['default','cpu'],{'advanced':True}),}}
     RETURN_TYPES = 'CLIP',
     FUNCTION = 'load_clip'
     CATEGORY = 'gguf'
@@ -485,22 +490,22 @@ class ClipLoaderGGUF:
             folder_paths.get_folder_paths('embeddings'))
         clip.patcher = GGUFModelPatcher.clone(clip.patcher)
         return clip
-    def load_clip(self, clip_name, type='stable_diffusion'):
+    def load_clip(self, clip_name, type='stable_diffusion', device='default'):
         clip_path = folder_paths.get_full_path('clip', clip_name)
-        return (self.load_patcher([clip_path], get_clip_type(type), self.load_data([clip_path])),)
+        return (self.load_patcher([clip_path], get_clip_type(type), self.load_data([clip_path])), get_device(device))
 class DualClipLoaderGGUF(ClipLoaderGGUF):
     @classmethod
     def INPUT_TYPES(s):
         base = nodes.DualCLIPLoader.INPUT_TYPES()
         file_options = s.get_filename_list(),
         return {'required': {'clip_name1':file_options, 'clip_name2':file_options, 'type':
-                             base['required']['type']}}
+                             base['required']['type'],'device':(['default','cpu'],{'advanced':True}),}}
     TITLE = 'GGUF DualCLIP Loader'
-    def load_clip(self, clip_name1, clip_name2, type):
+    def load_clip(self, clip_name1, clip_name2, type, device='default'):
         clip_path1 = folder_paths.get_full_path('clip', clip_name1)
         clip_path2 = folder_paths.get_full_path('clip', clip_name2)
         clip_paths = clip_path1, clip_path2
-        return (self.load_patcher(clip_paths, get_clip_type(type), self.load_data(clip_paths)),)
+        return (self.load_patcher(clip_paths, get_clip_type(type), self.load_data(clip_paths)), get_device(device))
 class TripleClipLoaderGGUF(ClipLoaderGGUF):
     @classmethod
     def INPUT_TYPES(s):
