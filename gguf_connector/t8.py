@@ -33,6 +33,11 @@ class ModelAura(ModelTemplate):
         'joint_transformer_blocks.3.ff_context.out_projection.weight',)]
     keys_banned = [
         'joint_transformer_blocks.3.ff_context.out_projection.weight']
+class ModelHiDream(ModelTemplate):
+    arch = 'hidream'
+    keys_detect = [('caption_projection.0.linear.weight',
+        'double_stream_blocks.0.block.ff_i.shared_experts.w3.weight')]
+    keys_hiprec = ['.ff_i.gate.weight']
 class ModelHyVid(ModelTemplate):
     arch = 'hyvid'
     keys_detect = [('double_blocks.0.img_attn_proj.weight',
@@ -70,8 +75,8 @@ class ModelSD1(ModelTemplate):
         'input_blocks.3.0.op.weight', 'input_blocks.6.0.op.weight',
         'input_blocks.9.0.op.weight', 'output_blocks.2.1.conv.weight',
         'output_blocks.5.2.conv.weight', 'output_blocks.8.2.conv.weight')]
-arch_list = [ModelFlux, ModelSD3, ModelAura, ModelLTXV, ModelHyVid,
-    ModelWan, ModelSDXL, ModelSD1]
+arch_list = [ModelFlux, ModelSD3, ModelAura, ModelHiDream, ModelLTXV,
+    ModelHyVid, ModelWan, ModelSDXL, ModelSD1]
 def is_model_arch(model, state_dict):
     matched = False
     invalid = False
