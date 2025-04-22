@@ -462,7 +462,8 @@ class ClipLoaderGGUF:
     def INPUT_TYPES(s):
         base = nodes.CLIPLoader.INPUT_TYPES()
         return {'required': {'clip_name': (s.get_filename_list(),), 'type':
-                             base['required']['type'],'device':(['default','cpu'],{'advanced':True}),}}
+                             base['required']['type']},
+                             'optional':{'device':(['default','cpu'],{'advanced':True}),}}
     RETURN_TYPES = 'CLIP',
     FUNCTION = 'load_clip'
     CATEGORY = 'gguf'
@@ -492,20 +493,29 @@ class ClipLoaderGGUF:
         return clip
     def load_clip(self, clip_name, type='stable_diffusion', device='default'):
         clip_path = folder_paths.get_full_path('clip', clip_name)
-        return (self.load_patcher([clip_path], get_clip_type(type), self.load_data([clip_path])), get_device(device))
+        if device != 'default':
+            clip = comfy.sd.load_clip(ckpt_paths=[clip_path], embedding_directory=folder_paths.get_folder_paths("embeddings"), clip_type=get_clip_type(type), model_options=get_device(device))
+            return (clip,)
+        else:
+            return (self.load_patcher([clip_path], get_clip_type(type), self.load_data([clip_path])), get_device(device))
 class DualClipLoaderGGUF(ClipLoaderGGUF):
     @classmethod
     def INPUT_TYPES(s):
         base = nodes.DualCLIPLoader.INPUT_TYPES()
         file_options = s.get_filename_list(),
         return {'required': {'clip_name1':file_options, 'clip_name2':file_options, 'type':
-                             base['required']['type'],'device':(['default','cpu'],{'advanced':True}),}}
+                             base['required']['type']},
+                             'optional':{'device':(['default','cpu'],{'advanced':True}),}}
     TITLE = 'GGUF DualCLIP Loader'
     def load_clip(self, clip_name1, clip_name2, type, device='default'):
         clip_path1 = folder_paths.get_full_path('clip', clip_name1)
         clip_path2 = folder_paths.get_full_path('clip', clip_name2)
         clip_paths = clip_path1, clip_path2
-        return (self.load_patcher(clip_paths, get_clip_type(type), self.load_data(clip_paths)), get_device(device))
+        if device != 'default':
+            clip = comfy.sd.load_clip(ckpt_paths=clip_paths, embedding_directory=folder_paths.get_folder_paths("embeddings"), clip_type=get_clip_type(type), model_options=get_device(device))
+            return (clip,)
+        else:
+            return (self.load_patcher(clip_paths, get_clip_type(type), self.load_data(clip_paths)), get_device(device))
 class TripleClipLoaderGGUF(ClipLoaderGGUF):
     @classmethod
     def INPUT_TYPES(s):
