@@ -493,10 +493,7 @@ class ClipLoaderGGUF:
         return clip
     def load_clip(self, clip_name, type='stable_diffusion', device='default'):
         clip_path = folder_paths.get_full_path('clip', clip_name)
-        if clip_name.endswith('.gguf') and device != 'default':
-            print('gguf clip is not supported for cpu mode yet; switching back to default..')
-            return (self.load_patcher([clip_path], get_clip_type(type), self.load_data([clip_path])), get_device(device))
-        elif device != 'default':
+        if clip_name.endswith('.safetensors') and device != 'default':
             clip = comfy.sd.load_clip(ckpt_paths=[clip_path], embedding_directory=folder_paths.get_folder_paths("embeddings"), clip_type=get_clip_type(type), model_options=get_device(device))
             return (clip,)
         else:
@@ -514,7 +511,7 @@ class DualClipLoaderGGUF(ClipLoaderGGUF):
         clip_path1 = folder_paths.get_full_path('clip', clip_name1)
         clip_path2 = folder_paths.get_full_path('clip', clip_name2)
         clip_paths = clip_path1, clip_path2
-        if device != 'default':
+        if device != 'default' and (clip_name1.endswith('.safetensors') and clip_name2.endswith('.safetensors')):
             clip = comfy.sd.load_clip(ckpt_paths=clip_paths, embedding_directory=folder_paths.get_folder_paths("embeddings"), clip_type=get_clip_type(type), model_options=get_device(device))
             return (clip,)
         else:
