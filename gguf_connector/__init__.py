@@ -1,4 +1,4 @@
-__version__ = '1.4.4'
+__version__ = '1.4.5'
 def __init__():
     import argparse
     parser = argparse.ArgumentParser()
@@ -19,6 +19,8 @@ def __init__():
     subparsers.add_parser('n', help='[n] clone node')
     subparsers.add_parser('u', help='[u] get cutter')
     subparsers.add_parser('p', help='[p] take pack')
+    subparsers.add_parser('p1', help='[p1] take framepack')
+    subparsers.add_parser('p2', help='[p2] take packpack')
     subparsers.add_parser('r', help='[r] metadata reader')
     subparsers.add_parser('r2', help='[r2] metadata fast reader')
     subparsers.add_parser('r3', help='[r3] tensor reader')
@@ -53,6 +55,10 @@ def __init__():
         from gguf_connector import n
     if args.subcommand == 'p':
         from gguf_connector import p
+    if args.subcommand == 'p1':
+        from gguf_connector import p1
+    if args.subcommand == 'p2':
+        from gguf_connector import p2
     elif args.subcommand == 'r':
         from gguf_connector import r
     elif args.subcommand == 'r2':
