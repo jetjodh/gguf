@@ -37,7 +37,7 @@ class ModelHiDream(ModelTemplate):
     arch = 'hidream'
     keys_detect = [('caption_projection.0.linear.weight',
         'double_stream_blocks.0.block.ff_i.shared_experts.w3.weight')]
-    keys_hiprec = ['.ff_i.gate.weight']
+    keys_hiprec = ['.ff_i.gate.weightimg_emb.emb_pos']
 class ModelHyVid(ModelTemplate):
     arch = 'hyvid'
     keys_detect = [('double_blocks.0.img_attn_proj.weight',
