@@ -548,6 +548,12 @@ class GGUFWriter:
     def add_value_length(self, length):
         self.add_uint32(Keys.Attention.VALUE_LENGTH.format(arch=self.arch),
             length)
+    def add_key_length_mla(self, length):
+        self.add_uint32(Keys.Attention.KEY_LENGTH_MLA.format(arch=self.arch
+            ), length)
+    def add_value_length_mla(self, length):
+        self.add_uint32(Keys.Attention.VALUE_LENGTH_MLA.format(arch=self.
+            arch), length)
     def add_max_alibi_bias(self, bias):
         self.add_float32(Keys.Attention.MAX_ALIBI_BIAS.format(arch=self.
             arch), bias)
@@ -597,6 +603,12 @@ class GGUFWriter:
             )
     def add_wkv_head_size(self, size):
         self.add_uint32(Keys.WKV.HEAD_SIZE.format(arch=self.arch), size)
+    def add_token_shift_count(self, count):
+        self.add_uint32(Keys.LLM.TOKEN_SHIFT_COUNT.format(arch=self.arch),
+            count)
+    def add_interleave_moe_layer_step(self, value):
+        self.add_uint32(Keys.LLM.INTERLEAVE_MOE_LAYER_STEP.format(arch=self
+            .arch), value)
     def add_layer_norm_eps(self, value):
         self.add_float32(Keys.Attention.LAYERNORM_EPS.format(arch=self.arch
             ), value)
@@ -617,6 +629,18 @@ class GGUFWriter:
     def add_kv_lora_rank(self, length):
         self.add_uint32(Keys.Attention.KV_LORA_RANK.format(arch=self.arch),
             length)
+    def add_decay_lora_rank(self, length):
+        self.add_uint32(Keys.Attention.DECAY_LORA_RANK.format(arch=self.
+            arch), length)
+    def add_iclr_lora_rank(self, length):
+        self.add_uint32(Keys.Attention.ICLR_LORA_RANK.format(arch=self.arch
+            ), length)
+    def add_value_residual_mix_lora_rank(self, length):
+        self.add_uint32(Keys.Attention.VALUE_RESIDUAL_MIX_LORA_RANK.format(
+            arch=self.arch), length)
+    def add_gate_lora_rank(self, length):
+        self.add_uint32(Keys.Attention.GATE_LORA_RANK.format(arch=self.arch
+            ), length)
     def add_relative_attn_buckets_count(self, value):
         self.add_uint32(Keys.Attention.REL_BUCKETS_COUNT.format(arch=self.
             arch), value)
@@ -688,8 +712,6 @@ class GGUFWriter:
         self.add_uint32(Keys.Tokenizer.SEP_ID, id)
     def add_pad_token_id(self, id):
         self.add_uint32(Keys.Tokenizer.PAD_ID, id)
-    def add_cls_token_id(self, id):
-        self.add_uint32(Keys.Tokenizer.CLS_ID, id)
     def add_mask_token_id(self, id):
         self.add_uint32(Keys.Tokenizer.MASK_ID, id)
     def add_add_bos_token(self, value):

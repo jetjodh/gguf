@@ -1,15 +1,14 @@
 from __future__ import annotations
-import logging, os
+import logging, os, sys
 from collections import OrderedDict
 from typing import Any, Literal, NamedTuple, TypeVar, Union
 import numpy as np
 import numpy.typing as npt
 from .quant import quant_shape_to_byte_shape
 if __name__ == '__main__':
-    import sys
     from pathlib import Path
     sys.path.insert(0, str(Path(__file__).parent.parent))
-from .const import GGML_QUANT_SIZES, GGUF_DEFAULT_ALIGNMENT, GGUF_MAGIC, GGUF_VERSION, GGMLQuantizationType, GGUFValueType
+from .const import GGML_QUANT_SIZES, GGUF_DEFAULT_ALIGNMENT, GGUF_MAGIC, GGUF_VERSION, GGMLQuantizationType, GGUFValueType, GGUFEndian
 logger = logging.getLogger(__name__)
 READER_SUPPORTED_VERSIONS = [2, GGUF_VERSION]
 class ReaderField(NamedTuple):
@@ -18,6 +17,28 @@ class ReaderField(NamedTuple):
     parts: list[npt.NDArray[Any]] = []
     data: list[int] = [-1]
     types: list[GGUFValueType] = []
+    def contents(self, index_or_slice=slice(None)):
+        if self.types:
+            to_string = lambda x: str(x.tobytes(), encoding='utf-8')
+            main_type = self.types[0]
+            if main_type == GGUFValueType.ARRAY:
+                sub_type = self.types[-1]
+                if sub_type == GGUFValueType.STRING:
+                    indices = self.data[index_or_slice]
+                    if isinstance(index_or_slice, int):
+                        return to_string(self.parts[indices])
+                    else:
+                        return [to_string(self.parts[idx]) for idx in indices]
+                elif isinstance(index_or_slice, int):
+                    return self.parts[self.data[index_or_slice]].tolist()[0]
+                else:
+                    return [pv for idx in self.data[index_or_slice] for pv in
+                        self.parts[idx].tolist()]
+            if main_type == GGUFValueType.STRING:
+                return to_string(self.parts[-1])
+            else:
+                return self.parts[-1].tolist()[0]
+        return None
 class ReaderTensor(NamedTuple):
     name: str
     tensor_type: GGMLQuantizationType
@@ -52,6 +73,14 @@ class GGUFReader:
             raise ValueError(
                 f'Sorry, file appears to be version {version} which we cannot handle'
                 )
+        if sys.byteorder == 'little':
+            host_endian = GGUFEndian.LITTLE
+            swapped_endian = GGUFEndian.BIG
+        else:
+            host_endian = GGUFEndian.BIG
+            swapped_endian = GGUFEndian.LITTLE
+        self.endianess = (swapped_endian if self.byte_order == 'S' else
+            host_endian)
         self.fields: OrderedDict[str, ReaderField] = OrderedDict()
         self.tensors: list[ReaderTensor] = []
         offs += self._push_field(ReaderField(offs, 'GGUF.version', [

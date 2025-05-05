@@ -1,4 +1,4 @@
-__version__ = '1.4.6'
+__version__ = '1.5.1'
 def __init__():
     import argparse
     parser = argparse.ArgumentParser()
@@ -48,6 +48,7 @@ def __init__():
     subparsers.add_parser('cs', help='[cs] wav recognizor cs')
     subparsers.add_parser('cg', help='[cg] wav recognizor cg (online)')
     subparsers.add_parser('pg', help='[pg] wav recognizor pg (online)')
+    subparsers.add_parser('vg', help='[vg] video generator (beta)')
     args = parser.parse_args()
     if args.subcommand == 'm':
         from gguf_connector import m
@@ -73,6 +74,8 @@ def __init__():
         from gguf_connector import u
     elif args.subcommand == 'v':
         from gguf_connector import v
+    elif args.subcommand == 'vg':
+        from gguf_connector import vg
     elif args.subcommand == 'w':
         from gguf_connector import w
     elif args.subcommand == 'y':
