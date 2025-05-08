@@ -1,4 +1,4 @@
-__version__ = '1.5.1'
+__version__ = '1.5.4'
 def __init__():
     import argparse
     parser = argparse.ArgumentParser()
@@ -30,6 +30,7 @@ def __init__():
     subparsers.add_parser('d2', help='[d2] divider (gguf)')
     subparsers.add_parser('ma', help='[ma] merger (safetensors)')
     subparsers.add_parser('m2', help='[m2] merger (gguf)')
+    subparsers.add_parser('s', help='[s] splitter (checkpoint)')
     subparsers.add_parser('t', help='[t] tensor convertor')
     subparsers.add_parser('t0', help='[t0] tensor convertor (zero)')
     subparsers.add_parser('t1', help='[t1] tensor convertor (alpha)')
@@ -48,7 +49,9 @@ def __init__():
     subparsers.add_parser('cs', help='[cs] wav recognizor cs')
     subparsers.add_parser('cg', help='[cg] wav recognizor cg (online)')
     subparsers.add_parser('pg', help='[pg] wav recognizor pg (online)')
-    subparsers.add_parser('vg', help='[vg] video generator (beta)')
+    subparsers.add_parser('vg', help='[vg] video generator (t2v)')
+    subparsers.add_parser('v1', help='[v1] video generator (i2v)')
+    subparsers.add_parser('v2', help='[v2] video 2 (t2v)')
     args = parser.parse_args()
     if args.subcommand == 'm':
         from gguf_connector import m
@@ -66,6 +69,8 @@ def __init__():
         from gguf_connector import r2
     elif args.subcommand == 'r3':
         from gguf_connector import r3
+    elif args.subcommand == 's':
+        from gguf_connector import s
     elif args.subcommand == 'i':
         from gguf_connector import i
     elif args.subcommand == 'o':
@@ -76,6 +81,10 @@ def __init__():
         from gguf_connector import v
     elif args.subcommand == 'vg':
         from gguf_connector import vg
+    elif args.subcommand == 'v1':
+        from gguf_connector import vg2
+    elif args.subcommand == 'v2':
+        from gguf_connector import v2
     elif args.subcommand == 'w':
         from gguf_connector import w
     elif args.subcommand == 'y':
