@@ -1,4 +1,4 @@
-### gguf node for comfyui [![Static Badge](https://img.shields.io/badge/ver-0.2.5-black?logo=github)](https://github.com/calcuis/gguf/releases)
+### gguf node for comfyui [![Static Badge](https://img.shields.io/badge/ver-0.2.6-black?logo=github)](https://github.com/calcuis/gguf/releases)
 
 [<img src="https://raw.githubusercontent.com/calcuis/comfy/master/gguf.gif" width="128" height="128">](https://github.com/calcuis/gguf)
 
@@ -11,7 +11,7 @@ pip install gguf-node
 py -m gguf_node
 ```
 >Please select:
->1. download the full pack
+>1. download full pack
 >2. clone the node only
 >
 >Enter your choice (1 to 2): _
