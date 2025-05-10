@@ -390,7 +390,7 @@ def load_gguf_clip(path):
     sd, arch = load_gguf_sd(path, return_arch=True)
     if arch in {'t5', 't5encoder'}:
         temb_key = 'token_embd.weight'
-        if temb_key in sd and sd[temb_key].shape == (256384, 4096):
+        if temb_key in sd and (sd[temb_key].shape == (256384, 4096) or sd[temb_key].shape == (256384, 768)):
             sd['spiece_model'] = tokenizer_builder(path)
         sd = tensor_swap(sd, arrays['T5'])
     elif arch in {'llama'}:
