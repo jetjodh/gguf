@@ -1,4 +1,4 @@
-__version__ = '1.5.5'
+__version__ = '1.5.6'
 def __init__():
     import argparse
     parser = argparse.ArgumentParser()
@@ -49,7 +49,7 @@ def __init__():
     subparsers.add_parser('cs', help='[cs] wav recognizor cs')
     subparsers.add_parser('cg', help='[cg] wav recognizor cg (online)')
     subparsers.add_parser('pg', help='[pg] wav recognizor pg (online)')
-    subparsers.add_parser('vg', help='[vg] video generator (t2v)')
+    subparsers.add_parser('vg', help='[vg] video generator')
     subparsers.add_parser('v1', help='[v1] video 1 (i2v)')
     subparsers.add_parser('v2', help='[v2] video 2 (t2v)')
     subparsers.add_parser('i2', help='[i2] image 2 (t2i)')
