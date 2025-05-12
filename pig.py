@@ -392,7 +392,11 @@ def load_gguf_clip(path):
         temb_key = 'token_embd.weight'
         if temb_key in sd and (sd[temb_key].shape == (256384, 4096) or sd[temb_key].shape == (256384, 768)):
             sd['spiece_model'] = tokenizer_builder(path)
-        sd = tensor_swap(sd, arrays['T5'])
+            sd = tensor_swap(sd, arrays['T5'])
+        elif temb_key in sd and sd[temb_key].shape == (32128, 768):
+            sd = tensor_swap(sd, arrays['B5'])
+        else:
+            sd = tensor_swap(sd, arrays['T5'])
     elif arch in {'llama'}:
         sd = tensor_swap(sd, arrays['L3'])
         sd = llama_permute(sd, 32, 8)
