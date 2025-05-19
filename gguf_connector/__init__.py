@@ -1,4 +1,4 @@
-__version__ = '1.5.6'
+__version__ = '1.6.3'
 def __init__():
     import argparse
     parser = argparse.ArgumentParser()
@@ -43,6 +43,8 @@ def __init__():
     subparsers.add_parser('t8', help='[t8] tensor convertor (theta)')
     subparsers.add_parser('t9', help='[t9] tensor convertor (iota)')
     subparsers.add_parser('d5', help='[d5] dimension 5 fixer (t8x)')
+    subparsers.add_parser('d6', help='[d6] tensor convertor (t8xx)')
+    subparsers.add_parser('d7', help='[d7] tensor convertor (plus)')
     subparsers.add_parser('pp', help='[pp] pdf analyzor pp')
     subparsers.add_parser('cp', help='[cp] pdf analyzor cp')
     subparsers.add_parser('ps', help='[ps] wav recognizor ps')
@@ -53,6 +55,7 @@ def __init__():
     subparsers.add_parser('v1', help='[v1] video 1 (i2v)')
     subparsers.add_parser('v2', help='[v2] video 2 (t2v)')
     subparsers.add_parser('i2', help='[i2] image 2 (t2i)')
+    subparsers.add_parser('s2', help='[s2] voice 2 (t2s)')
     args = parser.parse_args()
     if args.subcommand == 'm':
         from gguf_connector import m
@@ -88,6 +91,8 @@ def __init__():
         from gguf_connector import vg2
     elif args.subcommand == 'v2':
         from gguf_connector import v2
+    elif args.subcommand == 's2':
+        from gguf_connector import s2
     elif args.subcommand == 'w':
         from gguf_connector import w
     elif args.subcommand == 'y':
@@ -116,6 +121,10 @@ def __init__():
         from gguf_connector import t9
     elif args.subcommand == 'd5':
         from gguf_connector import d5
+    elif args.subcommand == 'd6':
+        from gguf_connector import d6
+    elif args.subcommand == 'd7':
+        from gguf_connector import d7
     elif args.subcommand == 'q':
         from gguf_connector import q
     elif args.subcommand == 'q2':
