@@ -27,8 +27,7 @@ def dequantize_tensor(tensor, dtype=None, dequant_dtype=None):
         return dequantize(tensor.data, qtype, oshape, dtype=dequant_dtype).to(
             dtype)
     else:
-        tqdm.write(
-            f'Pushing back to numpy dequant (cpu offload) for qtype: {qtype}')
+        tqdm.write(f'Processing tensor: qtype: {qtype}, {oshape}')
         new = gq(tensor.cpu().numpy(), qtype)
         return torch.from_numpy(new).to(tensor.device, dtype=dtype)
 def dequantize_blocks_BF16(blocks, block_size, type_size, dtype=None):
