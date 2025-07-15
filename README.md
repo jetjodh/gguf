@@ -111,11 +111,10 @@ for the demo workflow (picture) above, you could get the test model gguf [here](
 - please upgrade your node to the latest version for resolving the pypi gguf pack blockout issue if you have node(s) depending on gguf pack to work
 
 #### reference
-[gguf-connector](https://github.com/calcuis/gguf-connector)
+[gguf-connector](https://github.com/calcuis/gguf-connector) (engine)
 [comfyui](https://github.com/comfyanonymous/ComfyUI)
 [comfyui-gguf](https://github.com/city96/ComfyUI-GGUF) (special thanks city96)
 [llama.cpp](https://github.com/ggml-org/llama.cpp) (special thanks georgi)
-[gguf-node](https://pypi.org/project/gguf-node)
 [testkit](https://huggingface.co/calcuis/gguf-node)
 
 #### parent
