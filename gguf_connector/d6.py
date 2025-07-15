@@ -13,10 +13,6 @@ class ModelTemplate:
     keys_detect = []
     keys_banned = []
     keys_hiprec = []
-    def handle_nd_tensor(self, key, data):
-        raise NotImplementedError(
-            f'Tensor detected that exceeds dims supported by C++ code! ({key} @ {data.shape})'
-            )
 class ModelFlux(ModelTemplate):
     arch = 'flux'
     keys_detect = [('transformer_blocks.0.attn.norm_added_k.weight',), (
@@ -42,15 +38,6 @@ class ModelHyVid(ModelTemplate):
     arch = 'hyvid'
     keys_detect = [('double_blocks.0.img_attn_proj.weight',
         'txt_in.individual_token_refiner.blocks.1.self_attn_qkv.weight')]
-    def handle_nd_tensor(self, key, data):
-        path = f'./fix_5d_tensors_{self.arch}.safetensors'
-        if os.path.isfile(path):
-            raise RuntimeError(f'5D tensor fix file already exists! {path}')
-        fsd = {key: torch.from_numpy(data)}
-        tqdm.write(
-            f'5D key found in state dict! Manual fix required! - {key} {data.shape}'
-            )
-        torch.save(fsd, path)
 class ModelWan(ModelHyVid):
     arch = 'wan'
     keys_detect = [('blocks.0.self_attn.norm_q.weight',
@@ -145,7 +132,6 @@ def handle_tensors(args, writer, state_dict, model_arch):
         data_qtype = getattr(GGMLQuantizationType, 'BF16' if old_dtype ==
             torch.bfloat16 else 'F16')
         if len(data.shape) > MAX_TENSOR_DIMS:
-            model_arch.handle_nd_tensor(key, data)
             continue
         n_params = 1
         for dim_size in data_shape:

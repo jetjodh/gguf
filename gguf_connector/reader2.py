@@ -8,21 +8,17 @@ class GGUFReader:
     TENSOR_TYPES = {(0): 'GGML_TYPE_F32', (1): 'GGML_TYPE_F16', (2):
         'GGML_TYPE_Q4_0', (3): 'GGML_TYPE_Q4_1', (4):
         'GGML_TYPE_Q4_1_SOME_F16', (5): 'GGML_TYPE_TYPE_Q4_2', (6):
-        'GGML_TYPE_Q4_3', (7): 'GGML_TYPE_Q8_0', (8): 'GGML_TYPE_Q5_0', (9):
-        'GGML_TYPE_Q5_1', (10): 'GGML_TYPE_Q2_K', (11): 'GGML_TYPE_Q3_K_S',
-        (12): 'GGML_TYPE_Q3_K_M', (13): 'GGML_TYPE_Q3_K_L', (14):
-        'GGML_TYPE_Q4_K_S', (15): 'GGML_TYPE_Q4_K_M', (16):
-        'GGML_TYPE_Q5_K_S', (17): 'GGML_TYPE_Q5_K_M', (18):
-        'GGML_TYPE_Q6_K', (19): 'GGML_TYPE_IQ2_XXS', (20):
-        'GGML_TYPE_IQ2_XS', (21): 'GGML_TYPE_Q2_K_S', (22):
-        'GGML_TYPE_IQ3_XS', (23): 'GGML_TYPE_IQ3_XXS', (24):
-        'GGML_TYPE_IQ1_S', (25): 'GGML_TYPE_IQ4_NL', (26):
-        'GGML_TYPE_IQ3_S', (27): 'GGML_TYPE_IQ3_M', (28): 'GGML_TYPE_IQ2_S',
-        (29): 'GGML_TYPE_IQ2_M', (30): 'GGML_TYPE_IQ4_XS', (31):
-        'GGML_TYPE_IQ1_M', (32): 'GGML_TYPE_BF16', (33):
-        'GGML_TYPE_Q4_0_4_4', (34): 'GGML_TYPE_Q4_0_4_8', (35):
-        'GGML_TYPE__Q4_0_8_8', (36): 'GGML_TYPE__TQ1_0', (37):
-        'GGML_TYPE__TQ2_0'}
+        'GGML_TYPE_Q5_0', (7): 'GGML_TYPE_Q5_1', (8): 'GGML_TYPE_Q8_0', (9):
+        'GGML_TYPE_Q8_1', (10): 'GGML_TYPE_Q2_K', (11): 'GGML_TYPE_Q3_K', (
+        12): 'GGML_TYPE_Q4_K', (13): 'GGML_TYPE_Q5_K', (14):
+        'GGML_TYPE_Q6_K', (15): 'GGML_TYPE_Q8_K', (16): 'GGML_TYPE_IQ2_XXS',
+        (17): 'GGML_TYPE_IQ2_XS', (18): 'GGML_TYPE_IQ3_XXS', (19):
+        'GGML_TYPE_IQ1_S', (20): 'GGML_TYPE_IQ4_NL', (21):
+        'GGML_TYPE_IQ3_S', (22): 'GGML_TYPE_IQ2_S', (23):
+        'GGML_TYPE_IQ4_XS', (24): 'GGML_TYPE_I8', (25): 'GGML_TYPE_I16', (
+        26): 'GGML_TYPE_I32', (27): 'GGML_TYPE_I64', (28): 'GGML_TYPE_F64',
+        (29): 'GGML_TYPE_IQ1_M', (30): 'GGML_TYPE_BF16', (32):
+        'GGML_TYPE_BF16', (34): 'GGML_TYPE__TQ1_0', (35): 'GGML_TYPE__TQ2_0'}
     def __init__(self, file_path):
         """Initialize the GGUF reader"""
         self.file_path = file_path

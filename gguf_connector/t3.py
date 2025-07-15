@@ -1,20 +1,27 @@
-import torch
+
+import torch # optional (need torch to work; pip install torch)
 import numpy as np
 from safetensors.torch import save_file
 from typing import Dict, Tuple
 from .quant import dequantize
 from .reader import GGUFReader
 from tqdm import tqdm
+
 def load_gguf_and_extract_metadata(gguf_path):
     reader = GGUFReader(gguf_path)
     tensors_metadata = []
     for tensor in reader.tensors:
-        tensor_metadata = {'name': tensor.name, 'shape': tuple(tensor.shape
-            .tolist()), 'n_elements': tensor.n_elements, 'n_bytes': tensor.
-            n_bytes, 'data_offset': tensor.data_offset, 'type': tensor.
-            tensor_type}
+        tensor_metadata = {
+            'name': tensor.name,
+            'shape': tuple(tensor.shape.tolist()),
+            'n_elements': tensor.n_elements,
+            'n_bytes': tensor.n_bytes,
+            'data_offset': tensor.data_offset,
+            'type': tensor.tensor_type,
+        }
         tensors_metadata.append(tensor_metadata)
     return reader, tensors_metadata
+
 def convert_gguf_to_safetensors(gguf_path, output_path, use_bf16):
     reader, tensors_metadata = load_gguf_and_extract_metadata(gguf_path)
     print(f'Extracted {len(tensors_metadata)} tensors from GGUF file')
@@ -44,8 +51,10 @@ def convert_gguf_to_safetensors(gguf_path, output_path, use_bf16):
     metadata = {key: str(reader.get_field(key)) for key in reader.fields}
     save_file(tensors_dict, output_path, metadata=metadata)
     print('Conversion complete!')
+
 import os
 gguf_files = [file for file in os.listdir() if file.endswith('.gguf')]
+
 if gguf_files:
     print('GGUF file(s) available. Select which one to convert:')
     for index, file_name in enumerate(gguf_files, start=1):
