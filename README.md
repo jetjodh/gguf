@@ -36,7 +36,7 @@ check the dropdown menu for `gguf`
 #### other(s): get it somewhere else trustworthy/reliable
 you are also welcome to get the node through other available channels, i.e., comfy-cli, comfyui-manager (search `gguf` from the bar; and opt to install it there should be fine; see picture below), etc.
 ![screenshot](https://raw.githubusercontent.com/calcuis/comfy/master/comfyui-manager.png)
-`gguf` node is no conflict with the popular `comfyui-gguf` node (can coexist; and this project actually inspired by it; built upon its code base; we are here honor their developers' contribution; we all appreciate their great work truly; however, `gguf` is definitely not a re-package of `comfyui-gguf`; engine is natively coded; then you could test our version and their version; or mix up use; better treat it as compatible node or alternative); and `gguf` is more lightweight (no dependencies needed), more functions (i.e., built-in `tensor cutter`, `tensor booster`, `gguf convertor`, etc.), more models (covering: image, video, audio, etc.) and quants (s, k, i and t) support, compatible with the latest version numpy, and all other updated libraries come with comfyui
+`gguf` node is no conflict with the popular `comfyui-gguf` node (can coexist; and this project actually inspired by it; built upon its code base; we are here honor their developers' contribution; we all appreciate their great work truly; however, `gguf` is definitely not a re-package of `comfyui-gguf`; engine is natively coded; then you could test our version and their version; or mix up use; better treat it as compatible node or alternative); and `gguf` is more lightweight (no dependencies needed), more functions (i.e., built-in `tensor cutter`, `tensor booster`, `gguf convertor`, etc.), more models (covering: image, video, audio, etc.) and full quant (s, k, i and t) support, compatible with the latest version numpy, and all other updated libraries come with comfyui
 
 ![screenshot](https://raw.githubusercontent.com/calcuis/comfy/master/demo4.png)
 for the demo workflow (picture) above, you could get the test model gguf [here](https://huggingface.co/calcuis/illustrious), test it whether you can generate the similar outcome or not
@@ -114,9 +114,9 @@ for the demo workflow (picture) above, you could get the test model gguf [here](
 [comfyui](https://github.com/comfyanonymous/ComfyUI)
 [confyui_vlm_nodes](https://github.com/gokayfem/ComfyUI_VLM_nodes)
 [comfyui-gguf](https://github.com/city96/ComfyUI-GGUF) (special thanks city96)
-[gguf-comfy](https://github.com/calcuis/gguf-comfy)
-[gguf-connector](https://github.com/calcuis/gguf-connector)
+[llama.cpp](https://github.com/ggml-org/llama.cpp) (special thanks georgi)
 [testkit](https://huggingface.co/calcuis/gguf-node)
+[gguf-connector](https://github.com/calcuis/gguf-connector)
 
 #### parent
 node is a member of family [gguf](https://gguf.org)
