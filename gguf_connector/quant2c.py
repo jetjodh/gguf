@@ -232,6 +232,42 @@ def dequantize_blocks_TQ1_0(blocks, block_size, type_size, dtype=None):
     qs = torch.cat([qs0, qs1, qh], dim=-1)
     qs = (qs * 3 >> 8) - 1
     return d * qs
+def dequantize_blocks_IQ3_S(blocks, block_size, type_size, dtype=None):
+    n_blocks = blocks.shape[0]
+    d, qs, qh, signs, scales = split_block_dims(blocks, 2, QK_K // 4, QK_K // 32, QK_K // 8)
+    d = d.view(torch.float16).to(dtype)
+    scales = scales.reshape((n_blocks, -1, 1)) >> torch.tensor(
+        [0, 4], device=blocks.device, dtype=torch.uint8).reshape((1, 1, 2))
+    scales = (scales & 15).reshape((n_blocks, -1))
+    db = d * (1 + 2 * scales)
+    db = db.reshape((n_blocks, -1, 1, 1))
+    signs = signs.reshape((n_blocks, -1, 1)) >> torch.tensor(
+        [i for i in range(8)], device=blocks.device, dtype=torch.uint8).reshape((1, 1, 8))
+    signs = signs & 1
+    signs = torch.where(signs == 0, torch.tensor(1.0, device=blocks.device), torch.tensor(-1.0, device=blocks.device))
+    signs = signs.reshape((n_blocks, -1, 4, 8))
+    return (db * signs).reshape((n_blocks, -1))
+def dequantize_blocks_IQ3_XXS(blocks, block_size, type_size, dtype=None):
+    n_blocks = blocks.shape[0]
+    d, qs, scales = split_block_dims(blocks, 2, QK_K // 4)
+    d = d.view(torch.float16).to(dtype)
+    scales = to_uint32(scales)
+    db = d * (0.5 + (scales >> 28)) * 0.5
+    db = db.reshape((n_blocks, -1, 1, 1))
+    bit_shifts = torch.tensor(
+        [0, 7, 14, 21], device=blocks.device, dtype=torch.uint8).reshape((1, 1, 4))
+    signs = scales.reshape((n_blocks, -1, 1)) >> bit_shifts
+    db = db.reshape((n_blocks, -1, 1, 1))
+    signs = signs.reshape((n_blocks, -1, 1)) >> torch.tensor(
+        [i for i in range(8)], device=blocks.device, dtype=torch.uint8).reshape((1, 1, 8))
+    signs = signs & 1
+    db = db.reshape((n_blocks, -1, 1, 1))
+    sign_shifts = torch.arange(8, device=blocks.device, dtype=torch.uint8).view(1, 1, 8)
+    signs = signs.reshape((n_blocks, -1, 1)) >> sign_shifts
+    signs = (signs & 1).float()
+    signs = torch.where(signs == 0, torch.tensor(1.0, device=blocks.device), torch.tensor(-1.0, device=blocks.device))
+    signs = signs.reshape((n_blocks, -1, 4, 8))
+    return (db * signs).reshape((n_blocks, -1))
 dequantize_functions = {GGMLQuantizationType.BF16: dequantize_blocks_BF16,
     GGMLQuantizationType.Q8_0: dequantize_blocks_Q8_0, GGMLQuantizationType
     .Q5_1: dequantize_blocks_Q5_1, GGMLQuantizationType.Q5_0:
@@ -244,6 +280,8 @@ dequantize_functions = {GGMLQuantizationType.BF16: dequantize_blocks_BF16,
     dequantize_blocks_Q3_K, GGMLQuantizationType.Q2_K:
     dequantize_blocks_Q2_K, GGMLQuantizationType.IQ4_NL:
     dequantize_blocks_IQ4_NL, GGMLQuantizationType.IQ4_XS:
-    dequantize_blocks_IQ4_XS, GGMLQuantizationType.TQ2_0:
+    dequantize_blocks_IQ4_XS, GGMLQuantizationType.IQ3_S:
+    dequantize_blocks_IQ3_S, GGMLQuantizationType.IQ3_XXS:
+    dequantize_blocks_IQ3_XXS, GGMLQuantizationType.TQ2_0:
     dequantize_blocks_TQ2_0, GGMLQuantizationType.TQ1_0:
     dequantize_blocks_TQ1_0}
