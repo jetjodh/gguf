@@ -112,7 +112,6 @@ for the demo workflow (picture) above, you could get the test model gguf [here](
 
 #### reference
 [comfyui](https://github.com/comfyanonymous/ComfyUI)
-[confyui_vlm_nodes](https://github.com/gokayfem/ComfyUI_VLM_nodes)
 [comfyui-gguf](https://github.com/city96/ComfyUI-GGUF) (special thanks city96)
 [llama.cpp](https://github.com/ggml-org/llama.cpp) (special thanks georgi)
 [gguf-comfy](https://huggingface.co/calcuis/gguf-comfy)
