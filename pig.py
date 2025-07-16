@@ -11,7 +11,7 @@ from .gguf_connector import reader as gr
 from .gguf_connector.writer import GGUFWriter, GGMLQuantizationType
 from .gguf_connector.const import GGML_QUANT_VERSION, LlamaFileType
 from .gguf_connector.quant import quantize, dequantize, QuantError
-from .gguf_connector.quant2c import dequantize_tensor, is_quantized, is_torch_compatible
+from .gguf_connector.quant2d import dequantize_tensor, is_quantized, is_torch_compatible
 from .gguf_connector.tkn import get_field, tokenizer_builder
 pig = os.path.join(os.path.dirname(__file__), 'version.json')
 with open(pig, 'r') as file:
