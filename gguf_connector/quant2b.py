@@ -14,3 +14,8 @@ def get_scale_min(scales):
     sc = torch.cat([d & 63, m_d & 15 | d >> 2 & 48], dim=-1)
     min = torch.cat([m & 63, m_d >> 4 | m >> 2 & 48], dim=-1)
     return sc.reshape((n_blocks, 8)), min.reshape((n_blocks, 8))
+def load_grid_tensor(grid_shape, grid_hex):
+    grid_bytes = torch.tensor(list(grid_hex))
+    grid_words = grid_bytes.view(-1, 2).flip(1)
+    grid = grid_words.contiguous().view(-1).to(torch.int16).view(*grid_shape)
+    return grid
