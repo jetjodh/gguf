@@ -248,25 +248,23 @@ def dequantize_blocks_IQ3_XXS(blocks, block_size, type_size, dtype=None):
     d = d.view(torch.float16).to(dtype)
     scales = to_uint32(scales)
     db = d * (0.5 + (scales >> 28)) * 0.5
-    db = db.reshape((n_blocks, -1, 1, 1))
+    db = db.reshape(n_blocks, -1, 1, 1)
     bit_shifts = torch.tensor([0, 7, 14, 21], device=d.device, dtype=torch.
-        uint8).reshape((1, 1, 4))
-    signs = scales.reshape((n_blocks, -1, 1)) >> bit_shifts
-    db = db.reshape((n_blocks, -1, 1, 1))
-    signs = signs.reshape((n_blocks, -1, 1)) >> torch.tensor([i for i in
-        range(8)], device=d.device, dtype=torch.uint8).reshape((1, 1, 8))
+        uint8).reshape(1, 1, 4)
+    signs = scales.reshape(n_blocks, -1, 1) >> bit_shifts
+    signs = signs.reshape(n_blocks, -1, 1) >> torch.tensor([i for i in
+        range(8)], device=d.device, dtype=torch.uint8).reshape(1, 1, 8)
     signs = signs & 1
-    db = db.reshape((n_blocks, -1, 1, 1))
     sign_shifts = torch.arange(8, device=d.device, dtype=torch.uint8).view(
         1, 1, 8)
-    signs = signs.reshape((n_blocks, -1, 1)) >> sign_shifts
+    signs = signs.reshape(n_blocks, -1, 1) >> sign_shifts
     signs = (signs & 1).float()
     signs = torch.where(signs == 0, torch.tensor(1.0, device=d.device),
         torch.tensor(-1.0, device=d.device))
     signs = signs.reshape(n_blocks, -1, 4, 8)
     qs = qs.reshape(n_blocks, -1, 1, 1)
     grid = load_grid_tensor(grid_shape, grid_hex, grid_map, device=d.device)
-    grid = grid.unsqueeze(0).expand(n_blocks, -1, -1)
+    grid = grid.expand(n_blocks, 1, *grid_shape)
     return (db * signs).reshape(n_blocks, -1)
 def dequantize_blocks_IQ3_S(blocks, block_size, type_size, dtype=None):
     grid_shape = 512, 4
@@ -278,27 +276,23 @@ def dequantize_blocks_IQ3_S(blocks, block_size, type_size, dtype=None):
     d, qs, qh, signs, scales = split_block_dims(blocks, 2, QK_K // 4, QK_K //
         32, QK_K // 8)
     d = d.view(torch.float16).to(dtype)
-    scales = scales.reshape((n_blocks, -1, 1)) >> torch.tensor([0, 4],
-        device=d.device, dtype=torch.uint8).reshape((1, 1, 2))
-    scales = (scales & 15).reshape((n_blocks, -1))
-    db = d * (1 + 2 * scales.to(dtype))
-    db = db.reshape((n_blocks, -1, 1, 1))
-    signs = signs.reshape((n_blocks, -1, 1)) >> torch.arange(8, device=d.
-        device, dtype=torch.uint8).reshape((1, 1, 8))
-    signs = signs & 1
-    signs = torch.where(signs == 0, torch.tensor(1.0, device=d.device),
-        torch.tensor(-1.0, device=d.device))
-    signs = signs.reshape((n_blocks, -1, 4, 8))
-    qh_shifts = torch.arange(8, device=d.device, dtype=torch.uint8).view(1,
-        1, 8)
-    qh = qh.reshape((n_blocks, -1, 1)) >> qh_shifts & 1
-    qh = qh.reshape((n_blocks, -1)).to(torch.int16)
+    scales = scales.reshape(n_blocks, -1, 1) >> torch.tensor([0, 4], dtype=
+        torch.uint8, device=d.device).view(1, 1, 2)
+    scales = (scales & 15).reshape(n_blocks, -1).to(dtype)
+    db = d * (1 + 2 * scales)
+    db = db.view(n_blocks, -1, 1, 1)
+    signs = signs.view(n_blocks, -1, 1) >> torch.arange(8, dtype=torch.
+        uint8, device=d.device).view(1, 1, 8)
+    signs = (signs & 1).to(dtype)
+    signs = torch.where(signs == 0, 1.0, -1.0)
+    signs = signs.view(n_blocks, -1, 4, 8)
+    qh = qh.view(n_blocks, -1, 1) >> torch.arange(8, dtype=torch.uint8,
+        device=d.device).view(1, 1, 8)
+    qh = (qh & 1).view(n_blocks, -1).to(torch.int16)
     qs = qs.to(torch.int64) | qh << 8
     grid = load_grid_tensor(grid_shape, grid_hex, grid_map, device=d.device)
-    grid = grid.unsqueeze(0).expand(n_blocks, -1, -1)
-    gathered_grid = torch.gather(grid, dim=1, index=qs.unsqueeze(-1).expand
-        (-1, -1, 4))
-    gathered_grid = gathered_grid.unsqueeze(-1).expand(-1, -1, -1, 8)
+    grid = grid.expand(n_blocks, 1, *grid_shape)
+    grid = grid.squeeze(1)
     return (db * signs).reshape(n_blocks, -1)
 dequantize_functions = {GGMLQuantizationType.BF16: dequantize_blocks_BF16,
     GGMLQuantizationType.Q8_0: dequantize_blocks_Q8_0, GGMLQuantizationType
