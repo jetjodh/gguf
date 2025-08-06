@@ -397,9 +397,10 @@ def load_gguf_clip(path):
             sd = tensor_swap(sd, arrays['B5'])
         else:
             sd = tensor_swap(sd, arrays['T5'])
-    elif arch in {'llama'}:
+    elif arch in {'llama', "qwen2vl"}:
         sd = tensor_swap(sd, arrays['L3'])
-        sd = llama_permute(sd, 32, 8)
+        if arch == "llama":
+            sd = llama_permute(sd, 32, 8)
     elif arch in {'gemma2'}:
         sd["spiece_model"] = tokenizer_builder(path)
         sd = tensor_swap(sd, arrays['G2'])
